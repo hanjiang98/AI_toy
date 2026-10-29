@@ -1,0 +1,1654 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IEEE 14-Bus Power Flow</title>
+<meta name="description" content="An interactive bilingual primer on power flow analysis for electrical engineering undergraduates, built on the IEEE 14-bus test system.">
+<meta property="og:title" content="IEEE 14-Bus Power Flow">
+<meta property="og:description" content="Interactive EN/中文 primer on power flow: Y-bus, the power flow equations, Newton–Raphson step by step, and a live IEEE 14-bus lab.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Crect x='2' y='4' width='18' height='3' rx='1' fill='%2312202a'/%3E%3Crect x='2' y='15' width='18' height='3' rx='1' fill='%2312202a'/%3E%3Cpath d='M7 7v8M15 7v8' stroke='%23c26a00' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* Layout: an engineering notebook. One reading column (~68ch) of theory, broken by full-width
+   instrument panels (one-line diagram, matrices, solver). Amber marks energy moving; blue/red marks voltage. */
+:root{
+  --paper:#f2f5f6; --panel:#ffffff; --ink:#12202a; --ink-2:#3f505c; --muted:#677884;
+  --rule:#d5dde2; --grid:#e5ebee; --wire:#9aaab4; --code:#e9eef1;
+  --accent:#c26a00; --accent-ink:#8f4d00; --link:#0c5f88;
+  --v-lo:#2a78d6; --v-mid:#c7ced3; --v-hi:#e34948;
+  --seq-lo:#e3eefb; --seq-hi:#0d366b;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+  --good:#0a7d0a; --crit:#c23434;
+  --f-display:"Archivo","Noto Sans SC",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0d151b; --panel:#131e26; --ink:#e3eaee; --ink-2:#b4c2cb; --muted:#8798a4;
+    --rule:#26353f; --grid:#1c2932; --wire:#4d606c; --code:#1a2731;
+    --accent:#f0a53a; --accent-ink:#f3b65e; --link:#74c3ec;
+    --v-lo:#3987e5; --v-mid:#4a5862; --v-hi:#e66767;
+    --seq-lo:#182b3b; --seq-hi:#a9cdf6;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+    --good:#3cc23c; --crit:#ec6a6a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0d151b; --panel:#131e26; --ink:#e3eaee; --ink-2:#b4c2cb; --muted:#8798a4;
+  --rule:#26353f; --grid:#1c2932; --wire:#4d606c; --code:#1a2731;
+  --accent:#f0a53a; --accent-ink:#f3b65e; --link:#74c3ec;
+  --v-lo:#3987e5; --v-mid:#4a5862; --v-hi:#e66767;
+  --seq-lo:#182b3b; --seq-hi:#a9cdf6;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  --good:#3cc23c; --crit:#ec6a6a;
+  color-scheme:dark;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px;color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+img{max-width:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16.5px;line-height:1.65;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--paper)}
+:root:not([data-lang="zh"]) body [lang="zh-CN"]{display:none!important}
+:root[data-lang="zh"] body [lang="en"]{display:none!important}
+:root[data-lang="zh"] body{line-height:1.8}
+
+a{color:var(--link)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;font-stretch:108%}
+p{margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.prose{max-width:68ch;display:grid;gap:14px}
+.hero>*,section.chapter>*,.prose>*,.figrow>*,.io>*,.lab>*,.tables>*{min-width:0}
+.mono{font-family:var(--f-mono)}
+.num{font-variant-numeric:tabular-nums}
+var{font-style:italic;font-family:"Cambria Math","Times New Roman",serif;font-size:1.06em}
+.small{font-size:14px;color:var(--ink-2)}
+.eyebrow{font:500 12.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--rule)}
+.top .wrap{display:flex;align-items:center;gap:20px;height:56px}
+.brand{display:flex;align-items:center;gap:10px;font:700 15px/1 var(--f-display);font-stretch:115%;color:var(--ink);text-decoration:none;white-space:nowrap}
+.brand svg{flex:none}
+.nav{display:flex;gap:2px;margin-left:auto;overflow:hidden}
+.nav a{font-size:14px;color:var(--ink-2);text-decoration:none;padding:6px 9px;border-radius:4px;white-space:nowrap}
+.nav a:hover{background:var(--code);color:var(--ink)}
+.lang{display:flex;border:1px solid var(--rule);border-radius:5px;overflow:hidden;flex:none}
+.lang button{font:500 13px/1 var(--f-body);background:transparent;color:var(--ink-2);border:0;padding:8px 11px;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+@media (max-width:980px){.nav{display:none}.lang{margin-left:auto}}
+
+/* hero */
+.hero{padding-block:44px 28px;display:grid;gap:28px}
+.hero-text{display:grid;gap:16px;max-width:820px}
+.hero h1{font-size:clamp(32px,5.2vw,56px);line-height:1.04;font-weight:760;font-stretch:112%;letter-spacing:-.01em}
+:root[data-lang="zh"] .hero h1{font-stretch:100%;letter-spacing:0;line-height:1.2}
+.lede{font-size:18.5px;color:var(--ink-2);max-width:62ch}
+.facts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);margin:0}
+.facts div{padding:12px 14px 12px 0;display:grid;gap:2px;min-width:0}
+.facts div+div{padding-left:14px;border-left:1px solid var(--rule)}
+.facts dt{font:500 11.5px/1.3 var(--f-mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.facts dd{margin:0;font:600 22px/1.2 var(--f-display);font-variant-numeric:tabular-nums}
+.facts dd small{display:block;font:400 13px/1.35 var(--f-body);color:var(--ink-2)}
+@media (max-width:760px){.facts{grid-template-columns:repeat(2,minmax(0,1fr))}.facts div{padding:10px 10px 10px 0}.facts div+div{padding-left:0;border-left:0}.facts div:nth-child(even){padding-left:12px;border-left:1px solid var(--rule)}.facts div:nth-child(n+3){border-top:1px solid var(--rule)}}
+
+/* panels */
+.panel{background:var(--panel);border:1px solid var(--rule);border-radius:6px}
+.panel-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:12px 16px;border-bottom:1px solid var(--rule)}
+.panel-head h3{font-size:16px;font-weight:650}
+.panel-body{padding:16px}
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.diagram-svg{display:block;width:100%;min-width:640px;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;padding:10px 16px;border-top:1px solid var(--rule);font-size:13px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.vbar{display:inline-grid!important;grid-template-columns:auto 110px auto;gap:6px!important}
+.vbar i{display:block;height:8px;border-radius:2px;background:linear-gradient(90deg,var(--v-lo),var(--v-mid),var(--v-hi))}
+.vbar b{font:500 11.5px var(--f-mono);font-weight:500;color:var(--muted)}
+
+/* sections */
+section.chapter{padding-block:56px 8px;display:grid;gap:22px;scroll-margin-top:64px}
+.chap-head{display:grid;grid-template-columns:52px minmax(0,1fr);align-items:baseline;gap:0 6px;max-width:820px}
+.chap-head .n{font:500 14px var(--f-mono);color:var(--accent-ink)}
+.chap-head h2{font-size:clamp(25px,3.2vw,34px);line-height:1.15;font-weight:720}
+:root[data-lang="zh"] .chap-head h2{font-stretch:100%}
+.indent{padding-left:58px}
+@media (max-width:640px){.chap-head{grid-template-columns:1fr}.indent{padding-left:0}}
+h3.sub{font-size:19px;font-weight:650;margin-top:8px}
+
+.eq{overflow-x:auto;overflow-y:hidden;padding:4px 0;max-width:100%}
+.eq mjx-container{margin:6px 0!important}
+.callout{border-left:3px solid var(--accent);background:var(--panel);padding:12px 16px;border-radius:0 6px 6px 0;font-size:15.5px}
+.callout b{font-weight:600}
+
+.io{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;max-width:820px}
+.io .panel{padding:14px 16px;display:grid;gap:6px;align-content:start}
+.io ul{margin:0;padding-left:18px;display:grid;gap:3px;font-size:15.5px}
+@media (max-width:640px){.io{grid-template-columns:1fr}}
+
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font:500 12px/1.3 var(--f-mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+td.r,th.r{text-align:right}
+tbody tr:last-child td{border-bottom:0}
+.types-table td:first-child{white-space:nowrap}
+.chip{display:inline-block;font:500 11.5px/1 var(--f-mono);padding:4px 6px;border-radius:3px;border:1px solid var(--rule);color:var(--ink-2);white-space:nowrap}
+.chip.slack{border-color:var(--ink);color:var(--ink)}
+.chip.pv{border-color:var(--accent);color:var(--accent-ink)}
+.chip.lim{border-style:dashed;border-color:var(--crit);color:var(--crit)}
+
+ol.steps{margin:0;padding-left:0;list-style:none;counter-reset:s;display:grid;gap:10px;max-width:68ch}
+ol.steps li{counter-increment:s;display:grid;grid-template-columns:30px minmax(0,1fr);gap:8px}
+ol.steps li::before{content:counter(s);font:600 13px/26px var(--f-mono);width:26px;height:26px;text-align:center;border:1px solid var(--rule);border-radius:50%;color:var(--ink-2);background:var(--panel)}
+
+/* figures */
+.figrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:760px){.figrow{grid-template-columns:1fr}}
+figure{margin:0}
+figcaption{font-size:13.5px;color:var(--ink-2);padding:10px 16px;border-top:1px solid var(--rule)}
+.schem{display:block;width:100%;height:auto;padding:10px}
+.schem .w{stroke:var(--ink-2);stroke-width:1.6;fill:none}
+.schem .bar{fill:var(--ink)}
+.schem .box{fill:var(--panel);stroke:var(--ink-2);stroke-width:1.6}
+.schem text{font:500 13px var(--f-mono);fill:var(--ink)}
+.schem .lbl{font:600 14px var(--f-display);fill:var(--ink)}
+.schem .mut{fill:var(--muted);font-size:12px}
+
+/* controls */
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:5px;overflow:hidden;flex-wrap:wrap}
+.seg button,.seg label{font:500 13.5px/1 var(--f-body);background:var(--panel);color:var(--ink-2);border:0;padding:8px 11px;cursor:pointer;display:inline-flex;align-items:center}
+.seg button+button,.seg label+label{border-left:1px solid var(--rule)}
+.seg button[aria-pressed="true"],.seg input:checked+span{color:var(--paper)}
+.seg button[aria-pressed="true"]{background:var(--ink)}
+.seg label{position:relative;padding:0}
+.seg label span{padding:9px 11px;display:block}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg input:checked+span{background:var(--ink)}
+.seg input:focus-visible+span{outline:2px solid var(--accent);outline-offset:-2px}
+.btn{font:500 14px/1 var(--f-body);background:var(--panel);color:var(--ink);border:1px solid var(--rule);border-radius:5px;padding:9px 13px;cursor:pointer}
+.btn:hover{border-color:var(--ink-2)}
+.btn:disabled{opacity:.45;cursor:default}
+.iterbtns{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.iterbtns button{font:500 13px/1 var(--f-mono);min-width:38px;padding:8px 10px;border:1px solid var(--rule);background:var(--panel);color:var(--ink-2);border-radius:4px;cursor:pointer}
+.iterbtns button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+/* explorer */
+.explorer{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:0}
+.explorer>div{min-width:0;padding:16px;display:grid;gap:12px;align-content:start}
+.explorer>div+div{border-left:1px solid var(--rule)}
+@media (max-width:900px){.explorer{grid-template-columns:1fr}.explorer>div+div{border-left:0;border-top:1px solid var(--rule)}}
+.readout{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline}
+.readout b{font:600 26px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.chart{display:block;width:100%;height:auto;overflow:visible}
+.chart .ax{font:400 11px var(--f-mono);fill:var(--muted)}
+.chart .axl{font:500 11.5px var(--f-body);fill:var(--ink-2)}
+.chart .gl{stroke:var(--grid);stroke-width:1}
+.chart .base{stroke:var(--wire);stroke-width:1}
+.chart .tol{stroke:var(--ink-2);stroke-width:1;stroke-dasharray:4 4}
+.chart .lab{font:500 12px var(--f-body);fill:var(--ink)}
+.keyrow{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink-2)}
+.keyrow span{display:inline-flex;align-items:center;gap:6px}
+.keyrow i{display:inline-block;width:14px;height:3px;border-radius:2px}
+.keyrow i.sq{width:10px;height:10px;border-radius:2px}
+.statetbl{font-size:13px}
+.statetbl td,.statetbl th{padding:4px 8px}
+.statetbl td{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.statetbl td.chg{color:var(--accent-ink);font-weight:500}
+.cols2{columns:2;column-gap:14px}
+@media (max-width:520px){.cols2{columns:1}}
+
+/* lab */
+.lab{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;align-items:start}
+@media (max-width:1000px){.lab{grid-template-columns:1fr}}
+.lab-ctrl{display:grid;gap:0}
+.lab-ctrl>div{padding:14px 16px;display:grid;gap:10px}
+.lab-ctrl>div+div{border-top:1px solid var(--rule)}
+.lab-ctrl h4{margin:0;font:500 12px/1.2 var(--f-mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.range{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+.range input{width:100%;accent-color:var(--accent)}
+.range output{font:600 16px var(--f-mono);min-width:56px;text-align:right}
+.check{display:flex;gap:9px;align-items:flex-start;font-size:14.5px;cursor:pointer}
+.check input{margin-top:4px;accent-color:var(--accent)}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.fields label{display:grid;gap:3px;font-size:12.5px;color:var(--ink-2)}
+.fields input{font:500 14px var(--f-mono);padding:7px 8px;border:1px solid var(--rule);border-radius:4px;background:var(--paper);color:var(--ink);width:100%}
+.status{display:inline-flex;align-items:center;gap:7px;font:600 13.5px/1 var(--f-body);padding:6px 10px;border-radius:4px;border:1px solid currentColor}
+.status.ok{color:var(--good)}
+.status.bad{color:var(--crit)}
+.stats{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:13.5px;color:var(--ink-2)}
+.stats b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.msg{font-size:14px;color:var(--ink-2)}
+.msg.bad{color:var(--crit)}
+.tables{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:1000px){.tables{grid-template-columns:1fr}}
+.res td{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:13.5px;padding:6px 10px;white-space:nowrap}
+.res th{padding:8px 10px}
+.res tr.sel td{background:var(--code)}
+.res tr.off td{color:var(--muted)}
+.flag{color:var(--crit);font-weight:600}
+
+/* exercises */
+.ex{display:grid;gap:10px;max-width:820px;counter-reset:ex}
+details{background:var(--panel);border:1px solid var(--rule);border-radius:6px}
+details>summary{list-style:none;cursor:pointer;padding:14px 16px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:baseline}
+details>summary::-webkit-details-marker{display:none}
+details>summary .q{font-weight:500}
+details>summary .tag{font:500 11.5px var(--f-mono);color:var(--muted);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+details>summary .k{font:600 13px var(--f-mono);color:var(--accent-ink)}
+details>summary::after{content:"+";font:500 18px/1 var(--f-mono);color:var(--muted)}
+details[open]>summary::after{content:"−"}
+details>summary{grid-template-columns:auto minmax(0,1fr) auto}
+details .ans{padding:0 16px 16px 16px;border-top:1px dashed var(--rule);padding-top:12px;font-size:15.5px;display:grid;gap:8px}
+details>summary .tag{display:none}
+
+footer{margin-top:64px;border-top:1px solid var(--rule);padding-block:28px 48px;font-size:14px;color:var(--ink-2)}
+footer .wrap{display:grid;gap:10px}
+footer ul{margin:0;padding-left:18px;display:grid;gap:3px}
+
+/* diagram */
+.dg-line{fill:none;stroke:var(--wire);stroke-linecap:round;stroke-linejoin:round}
+.dg-flow{fill:none;stroke:var(--accent);stroke-linecap:round;stroke-dasharray:2 11;animation:flow 1.6s linear infinite}
+.dg-out{fill:none;stroke:var(--muted);stroke-width:1.4;stroke-dasharray:5 5;opacity:.7}
+.dg-hit{fill:none;stroke:transparent;stroke-width:16;cursor:pointer;pointer-events:stroke}
+.dg-hit:hover+.dg-hover{stroke:var(--ink-2)}
+.dg-chev{fill:var(--accent)}
+.dg-sym{fill:var(--panel);stroke:var(--ink-2);stroke-width:1.4}
+.dg-symt{font:600 11px var(--f-mono);fill:var(--ink-2)}
+.dg-stub{stroke:var(--ink-2);stroke-width:1.4;fill:none}
+.dg-load{fill:var(--ink-2)}
+.dg-num{font:700 14px var(--f-display);fill:var(--ink)}
+.dg-v{font:500 10.5px var(--f-mono);fill:var(--ink-2)}
+.dg-flab{font:500 10px var(--f-mono);fill:var(--accent-ink);paint-order:stroke;stroke:var(--panel);stroke-width:3px;stroke-linejoin:round}
+.dg-bus{cursor:pointer}
+.hitbox{fill:transparent}
+.dg-sel{fill:none;stroke:var(--ink);stroke-width:1.5}
+.dg-x{stroke:var(--crit);stroke-width:2;stroke-linecap:round}
+@keyframes flow{to{stroke-dashoffset:-26}}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}.dg-flow{animation:none}}
+
+#tip{position:fixed;z-index:50;pointer-events:none;max-width:280px;background:var(--ink);color:var(--paper);font:400 12.5px/1.45 var(--f-body);padding:8px 10px;border-radius:5px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+#tip b{font-weight:600}
+#tip .m{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+</style>
+
+<script>
+window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
+</head>
+<body>
+<noscript><p style="padding:16px">This page needs JavaScript to run the power flow solver. / 本页需要启用 JavaScript 才能运行潮流求解器。</p></noscript>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="IEEE 14-Bus Power Flow">
+      <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="2" y="4" width="18" height="3" rx="1" fill="var(--ink)"/><rect x="2" y="15" width="18" height="3" rx="1" fill="var(--ink)"/><path d="M7 7v8M15 7v8" stroke="var(--accent)" stroke-width="2"/></svg>
+      <span>IEEE 14 · PF</span>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#problem"><span lang="en">Problem</span><span lang="zh-CN">问题</span></a>
+      <a href="#buses"><span lang="en">Bus types</span><span lang="zh-CN">节点类型</span></a>
+      <a href="#ybus"><span lang="en">Y<sub>bus</sub></span><span lang="zh-CN">导纳矩阵</span></a>
+      <a href="#equations"><span lang="en">Equations</span><span lang="zh-CN">潮流方程</span></a>
+      <a href="#newton"><span lang="en">Newton–Raphson</span><span lang="zh-CN">牛顿法</span></a>
+      <a href="#methods"><span lang="en">Other methods</span><span lang="zh-CN">其他方法</span></a>
+      <a href="#lab"><span lang="en">Lab</span><span lang="zh-CN">实验台</span></a>
+      <a href="#exercises"><span lang="en">Exercises</span><span lang="zh-CN">练习</span></a>
+    </nav>
+    <div class="lang" role="group" aria-label="Language / 语言">
+      <button type="button" id="lang-en" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" id="lang-zh" data-lang="zh" aria-pressed="false">中文</button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap">
+
+    <section class="hero">
+      <div class="hero-text">
+        <p class="eyebrow"><span lang="en">An interactive primer for electrical engineering undergraduates</span><span lang="zh-CN">面向电气工程本科生的交互式入门</span></p>
+        <h1><span lang="en">Power flow, solved on the IEEE 14-bus system</span><span lang="zh-CN">电力系统潮流计算：以 IEEE 14 节点系统为例</span></h1>
+        <p class="lede"><span lang="en">Fourteen buses, five machines, twenty branches. This page builds the power flow problem from the admittance matrix up, solves it with Newton–Raphson in your browser, and then lets you change loads and cut lines to see how the network responds.</span><span lang="zh-CN">14 个节点、5 台电机（发电机和调相机）、20 条支路。本页从节点导纳矩阵出发，一步步建立潮流方程，在浏览器中用牛顿–拉夫逊法实时求解，再让你亲手调整负荷、断开线路，观察电网如何响应。</span></p>
+      </div>
+      <dl class="facts">
+        <div><dt><span lang="en">Base</span><span lang="zh-CN">基准容量</span></dt><dd>100 MVA<small><span lang="en">all values in per unit</span><span lang="zh-CN">全部采用标幺值</span></small></dd></div>
+        <div><dt><span lang="en">Buses</span><span lang="zh-CN">节点</span></dt><dd>14<small><span lang="en">1 slack · 4 PV · 9 PQ</span><span lang="zh-CN">1 平衡 · 4 PV · 9 PQ</span></small></dd></div>
+        <div><dt><span lang="en">Branches</span><span lang="zh-CN">支路</span></dt><dd>20<small><span lang="en">incl. 3 tap-changing transformers</span><span lang="zh-CN">含 3 台带分接头变压器</span></small></dd></div>
+        <div><dt><span lang="en">Load</span><span lang="zh-CN">总负荷</span></dt><dd>259.0 MW<small>73.5 MVAr</small></dd></div>
+        <div><dt><span lang="en">Losses</span><span lang="zh-CN">网损</span></dt><dd id="heroLoss">–<small id="heroIter">&nbsp;</small></dd></div>
+      </dl>
+      <figure class="panel">
+        <div class="panel-head">
+          <h3><span lang="en">Base case, solved live</span><span lang="zh-CN">基础算例（实时求解）</span></h3>
+          <span class="small"><span lang="en">Hover a bus or line for values.</span><span lang="zh-CN">将鼠标悬停在节点或线路上查看数值。</span></span>
+        </div>
+        <div class="scroll-x"><svg id="heroSvg" class="diagram-svg" viewBox="0 0 900 600" role="img" aria-label="IEEE 14-bus one-line diagram"></svg></div>
+        <div class="legend" data-legend></div>
+      </figure>
+    </section>
+
+    <!-- 1 -->
+    <section class="chapter" id="problem">
+      <div class="chap-head"><span class="n">01</span><h2><span lang="en">What a power flow study answers</span><span lang="zh-CN">潮流计算要回答什么问题</span></h2></div>
+      <div class="indent prose">
+        <p lang="en">Every bus in a transmission network has four electrical quantities: real power injection <var>P</var>, reactive power injection <var>Q</var>, voltage magnitude <var>|V|</var> and voltage angle <var>θ</var>. Operators know some of them: how much each load draws and how much each generator is scheduled to produce. Power flow (also called load flow) finds the rest. The answer is the steady-state operating point of the whole network.</p>
+        <p lang="zh-CN">输电网中每个节点都有四个电气量：有功注入 <var>P</var>、无功注入 <var>Q</var>、电压幅值 <var>|V|</var> 和电压相角 <var>θ</var>。调度人员只知道其中一部分：每个负荷消耗多少功率、每台发电机计划发多少电。潮流计算（load flow）求出其余未知量，得到整个电网的稳态运行点。</p>
+        <p lang="en">Once every bus voltage is known, everything else follows from circuit laws: the power on each line and transformer, the reactive output each generator must supply, and the total losses. That is why power flow sits underneath almost every other study. Planning new lines, N−1 contingency screening, optimal power flow and state estimation all solve it, many times over.</p>
+        <p lang="zh-CN">一旦求出所有节点电压，其余结果都可以由电路定律直接算出：每条线路和变压器上的功率、每台发电机需要提供的无功、以及全网损耗。因此潮流计算几乎是所有其他分析的基础：电网规划、N−1 预想事故扫描、最优潮流和状态估计都需要反复求解潮流。</p>
+      </div>
+      <div class="indent">
+        <div class="io">
+          <div class="panel">
+            <span class="eyebrow"><span lang="en">You give it</span><span lang="zh-CN">已知输入</span></span>
+            <ul lang="en"><li>Load <var>P<sub>D</sub></var>, <var>Q<sub>D</sub></var> at every bus</li><li>Generator real power <var>P<sub>G</sub></var> and voltage setpoint</li><li>Network topology and branch parameters <var>r</var>, <var>x</var>, <var>b</var>, tap <var>t</var></li></ul>
+            <ul lang="zh-CN"><li>各节点负荷 <var>P<sub>D</sub></var>、<var>Q<sub>D</sub></var></li><li>发电机有功出力 <var>P<sub>G</sub></var> 和电压设定值</li><li>网络拓扑和支路参数 <var>r</var>、<var>x</var>、<var>b</var>、变比 <var>t</var></li></ul>
+          </div>
+          <div class="panel">
+            <span class="eyebrow"><span lang="en">It gives you</span><span lang="zh-CN">计算输出</span></span>
+            <ul lang="en"><li><var>|V|</var> and <var>θ</var> at every bus</li><li>Real and reactive flow on every branch</li><li>Reactive output of every generator, real output of the slack</li><li>Total system losses</li></ul>
+            <ul lang="zh-CN"><li>各节点电压幅值 <var>|V|</var> 和相角 <var>θ</var></li><li>各支路的有功和无功潮流</li><li>各发电机的无功出力，以及平衡机的有功出力</li><li>全网总损耗</li></ul>
+          </div>
+        </div>
+      </div>
+      <div class="indent prose">
+        <p class="small" lang="en">Standard assumptions: balanced three-phase operation, represented by its positive-sequence single-phase equivalent; sinusoidal steady state at nominal frequency; all quantities in per unit on a 100 MVA base.</p>
+        <p class="small" lang="zh-CN">标准假设：三相平衡运行，用正序单相等值电路表示；额定频率下的正弦稳态；所有量都采用以 100 MVA 为基准的标幺值。</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section class="chapter" id="buses">
+      <div class="chap-head"><span class="n">02</span><h2><span lang="en">Three kinds of bus</span><span lang="zh-CN">三类节点</span></h2></div>
+      <div class="indent prose">
+        <p lang="en">Each bus contributes two equations, real and reactive power balance, so exactly two of its four quantities must be specified in advance. Which two depends on what is connected to it.</p>
+        <p lang="zh-CN">每个节点提供两个方程（有功平衡和无功平衡），因此四个量中必须预先给定两个。给定哪两个，取决于节点上连接了什么设备。</p>
+      </div>
+      <div class="indent">
+        <div class="panel scroll-x" style="max-width:820px">
+          <table class="types-table">
+            <thead><tr><th><span lang="en">Type</span><span lang="zh-CN">类型</span></th><th><span lang="en">Specified</span><span lang="zh-CN">给定</span></th><th><span lang="en">Unknown</span><span lang="zh-CN">待求</span></th><th><span lang="en">IEEE 14</span><span lang="zh-CN">IEEE 14</span></th><th><span lang="en">What it represents</span><span lang="zh-CN">物理含义</span></th></tr></thead>
+            <tbody>
+              <tr><td><span class="chip slack"><span lang="en">Slack</span><span lang="zh-CN">平衡</span></span></td><td><var>|V|</var>, <var>θ</var></td><td><var>P</var>, <var>Q</var></td><td class="mono">1</td><td><span lang="en">One generator takes up the slack. It supplies whatever the losses turn out to be, and its angle is the reference, θ = 0.</span><span lang="zh-CN">由一台发电机承担功率平衡，提供最终算出的网损；它的相角作为参考，θ = 0。</span></td></tr>
+              <tr><td><span class="chip pv">PV</span></td><td><var>P</var>, <var>|V|</var></td><td><var>Q</var>, <var>θ</var></td><td class="mono">2, 3, 6, 8</td><td><span lang="en">Machines with automatic voltage regulators. They hold <var>|V|</var> at a setpoint and deliver a scheduled <var>P</var>.</span><span lang="zh-CN">装有自动电压调节器的电机：维持电压幅值为设定值，并按计划发出有功。</span></td></tr>
+              <tr><td><span class="chip">PQ</span></td><td><var>P</var>, <var>Q</var></td><td><var>|V|</var>, <var>θ</var></td><td class="mono">4, 5, 7, 9–14</td><td><span lang="en">Load buses and plain network nodes. Both injections are known; a load is a negative injection.</span><span lang="zh-CN">负荷节点和联络节点：有功、无功注入都已知，负荷记为负注入。</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="indent prose">
+        <p class="callout" lang="en"><b>Buses 3, 6 and 8 have synchronous condensers.</b> These machines produce no real power. They only supply or absorb reactive power to hold the voltage, which still makes them PV buses (with <var>P</var> = 0).</p>
+        <p class="callout" lang="zh-CN"><b>节点 3、6、8 接的是同步调相机。</b>它们不发有功，只发出或吸收无功来维持电压，所以仍然是 PV 节点（<var>P</var> = 0）。</p>
+        <p lang="en">Counting unknowns for IEEE 14: an angle at every bus except the slack, and a magnitude at every PQ bus. That gives 22 nonlinear equations in 22 unknowns.</p>
+        <p lang="zh-CN">统计 IEEE 14 节点系统的未知量：除平衡节点外每个节点一个相角，每个 PQ 节点一个电压幅值，共 22 个未知量、22 个非线性方程。</p>
+        <div class="eq">\[ \underbrace{(n-1)}_{\theta\ \text{except slack}} + \underbrace{n_{PQ}}_{|V|\ \text{at PQ buses}} = 13 + 9 = 22 \]</div>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section class="chapter" id="ybus">
+      <div class="chap-head"><span class="n">03</span><h2><span lang="en">From one-line diagram to Y<sub>bus</sub></span><span lang="zh-CN">从单线图到节点导纳矩阵 Y<sub>bus</sub></span></h2></div>
+      <div class="indent prose">
+        <p lang="en">Each line is modelled as a π-equivalent: a series impedance <var>z = r + jx</var> between its two ends, and half of the total line-charging susceptance <var>b</var> to ground at each end. A tap-changing transformer adds an ideal transformer with ratio <var>t</var> : 1 on its from side. IEEE 14 has three of them, on branches 4–7, 4–9 and 5–6.</p>
+        <p lang="zh-CN">每条线路用 π 型等值电路表示：两端之间是串联阻抗 <var>z = r + jx</var>，两端各有一半线路充电电纳 <var>b</var>/2 接地。带分接头的变压器在首端串入一个变比为 <var>t</var> : 1 的理想变压器。IEEE 14 节点系统中有三台，位于支路 4–7、4–9 和 5–6。</p>
+      </div>
+      <div class="indent figrow">
+        <figure class="panel">
+          <svg class="schem" viewBox="0 0 420 170" role="img" aria-label="Pi-equivalent line model">
+            <rect class="bar" x="40" y="30" width="6" height="56" rx="1"/><rect class="bar" x="374" y="30" width="6" height="56" rx="1"/>
+            <text class="lbl" x="30" y="24" text-anchor="middle">f</text><text class="lbl" x="390" y="24" text-anchor="middle">t</text>
+            <path class="w" d="M46 50H160M260 50H374"/>
+            <rect class="box" x="160" y="36" width="100" height="28" rx="2"/><text x="210" y="55" text-anchor="middle">r + jx</text>
+            <path class="w" d="M100 50V92M320 50V92"/>
+            <path class="w" d="M86 92H114M86 100H114M306 92H334M306 100H334"/>
+            <path class="w" d="M100 100V124M320 100V124M88 124H112M93 130H107M98 136H102M308 124H332M313 130H327M318 136H322"/>
+            <text x="124" y="101">jb/2</text><text x="258" y="101">jb/2</text>
+            <text class="mut" x="210" y="160" text-anchor="middle">π model</text>
+          </svg>
+          <figcaption><span lang="en">Transmission line: series impedance plus half the charging at each end.</span><span lang="zh-CN">输电线路：串联阻抗，两端各接一半充电电纳。</span></figcaption>
+        </figure>
+        <figure class="panel">
+          <svg class="schem" viewBox="0 0 420 170" role="img" aria-label="Off-nominal tap transformer model">
+            <rect class="bar" x="40" y="30" width="6" height="56" rx="1"/><rect class="bar" x="374" y="30" width="6" height="56" rx="1"/>
+            <text class="lbl" x="30" y="24" text-anchor="middle">f</text><text class="lbl" x="390" y="24" text-anchor="middle">t</text>
+            <path class="w" d="M46 50H100M152 50H220M300 50H374"/>
+            <circle class="box" cx="116" cy="50" r="16"/><circle class="box" cx="136" cy="50" r="16"/>
+            <text x="126" y="90" text-anchor="middle">t : 1</text>
+            <rect class="box" x="220" y="36" width="80" height="28" rx="2"/><text x="260" y="55" text-anchor="middle">jx</text>
+            <text class="mut" x="210" y="140" text-anchor="middle">t = 0.978 (4–7), 0.969 (4–9), 0.932 (5–6)</text>
+            <text class="mut" x="210" y="160" text-anchor="middle">ideal transformer + leakage reactance</text>
+          </svg>
+          <figcaption><span lang="en">Transformer: ideal t : 1 ratio on the from side, then its leakage reactance.</span><span lang="zh-CN">变压器：首端为理想变压器 t : 1，后接漏抗。</span></figcaption>
+        </figure>
+      </div>
+      <div class="indent prose">
+        <p lang="en">Both models reduce to a 2 × 2 admittance block that relates the currents injected at the branch's two ends to the end voltages (for a plain line, <var>t</var> = 1):</p>
+        <p lang="zh-CN">两种模型都可以写成一个 2 × 2 导纳块，把支路两端注入电流与两端电压联系起来（普通线路取 <var>t</var> = 1）：</p>
+        <div class="eq">\[ y_s=\frac{1}{r+jx},\qquad \begin{bmatrix} I_f\\ I_t\end{bmatrix}=\begin{bmatrix}\dfrac{y_s+j\,b/2}{t^2} & -\dfrac{y_s}{t}\\[8pt] -\dfrac{y_s}{t} & y_s+j\,b/2\end{bmatrix}\begin{bmatrix}V_f\\ V_t\end{bmatrix} \]</div>
+        <p lang="en">Adding every branch's four entries into a 14 × 14 matrix gives the bus admittance matrix, which links injected currents to bus voltages: <var>I</var> = <var>Y</var><sub>bus</sub><var>V</var>. Each diagonal entry is the sum of all admittances connected to that bus. Each off-diagonal entry is minus the admittance between two buses, and zero if they are not connected. The capacitor bank at bus 9 (19 MVAr at 1 pu) adds <var>j</var>0.19 to <var>Y</var><sub>9,9</sub>.</p>
+        <p lang="zh-CN">把每条支路的四个元素累加到 14 × 14 矩阵中，就得到节点导纳矩阵，它把注入电流和节点电压联系起来：<var>I</var> = <var>Y</var><sub>bus</sub><var>V</var>。对角元是与该节点相连的所有导纳之和（自导纳）；非对角元是两节点之间导纳的负值（互导纳），两节点不相连时为零。节点 9 的并联电容器（1 pu 电压下 19 MVAr）在 <var>Y</var><sub>9,9</sub> 上加 <var>j</var>0.19。</p>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <h3><span lang="en">Y<sub>bus</sub> of the current case</span><span lang="zh-CN">当前算例的 Y<sub>bus</sub></span></h3>
+          <div class="seg" role="group" aria-label="Matrix view">
+            <button type="button" id="ym-abs" data-ymode="abs" aria-pressed="true">|Y|</button>
+            <button type="button" id="ym-g" data-ymode="g" aria-pressed="false">G</button>
+            <button type="button" id="ym-b" data-ymode="b" aria-pressed="false">B</button>
+          </div>
+          <span class="small" id="ynnz"></span>
+        </div>
+        <div class="explorer">
+          <div class="scroll-x"><svg id="ybusSvg" class="chart" viewBox="0 0 420 420" style="min-width:320px;max-width:520px" role="img" aria-label="Bus admittance matrix heatmap"></svg></div>
+          <div>
+            <div class="keyrow" id="ykey"></div>
+            <p class="small" lang="en">Each square is one entry <var>Y<sub>ik</sub> = G<sub>ik</sub> + jB<sub>ik</sub></var>. Hover for its value. Empty squares are exact zeros: buses that share no branch.</p>
+            <p class="small" lang="zh-CN">每个方块是一个元素 <var>Y<sub>ik</sub> = G<sub>ik</sub> + jB<sub>ik</sub></var>，悬停可查看数值。空白方块是零元素：两节点之间没有支路。</p>
+            <p class="small" lang="en">14 buses and 20 branches give 14 + 2 × 20 = 54 nonzeros out of 196 entries. Real grids with tens of thousands of buses are more than 99.9% zeros, which is why production solvers rely on sparse matrix techniques.</p>
+            <p class="small" lang="zh-CN">14 个节点、20 条支路，共 14 + 2 × 20 = 54 个非零元（总数 196）。实际电网有数万个节点，导纳矩阵 99.9% 以上是零，所以工程软件都采用稀疏矩阵技术。</p>
+            <p class="small" lang="en">Take a line out in the Lab (section 07) and watch its two off-diagonal entries disappear here.</p>
+            <p class="small" lang="zh-CN">在第 07 节的实验台断开一条线路，就能看到这里对应的两个非对角元消失。</p>
+            <details>
+              <summary><span class="k">i</span><span class="q"><span lang="en">Branch data (per unit, 100 MVA base)</span><span lang="zh-CN">支路参数（标幺值，100 MVA 基准）</span></span></summary>
+              <div class="ans scroll-x"><table class="res" id="branchData"></table></div>
+            </details>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section class="chapter" id="equations">
+      <div class="chap-head"><span class="n">04</span><h2><span lang="en">The power flow equations</span><span lang="zh-CN">潮流方程</span></h2></div>
+      <div class="indent prose">
+        <p lang="en">The complex power injected at bus <var>i</var> is the voltage times the conjugate of the injected current. Substituting <var>I</var> = <var>Y</var><sub>bus</sub><var>V</var>, writing <var>Y<sub>ik</sub> = G<sub>ik</sub> + jB<sub>ik</sub></var> and <var>θ<sub>ik</sub> = θ<sub>i</sub> − θ<sub>k</sub></var>, and separating real and imaginary parts gives two real equations per bus:</p>
+        <p lang="zh-CN">节点 <var>i</var> 的注入复功率等于电压乘以注入电流的共轭。代入 <var>I</var> = <var>Y</var><sub>bus</sub><var>V</var>，记 <var>Y<sub>ik</sub> = G<sub>ik</sub> + jB<sub>ik</sub></var>、<var>θ<sub>ik</sub> = θ<sub>i</sub> − θ<sub>k</sub></var>，再分开实部和虚部，每个节点得到两个实数方程（极坐标形式）：</p>
+        <div class="eq">\[ S_i = P_i + jQ_i = V_i\,I_i^{*} = V_i\sum_{k=1}^{n} Y_{ik}^{*}\,V_k^{*} \]</div>
+        <div class="eq">\[ \begin{aligned} P_i &= |V_i|\sum_{k=1}^{n}|V_k|\left(G_{ik}\cos\theta_{ik}+B_{ik}\sin\theta_{ik}\right)\\ Q_i &= |V_i|\sum_{k=1}^{n}|V_k|\left(G_{ik}\sin\theta_{ik}-B_{ik}\cos\theta_{ik}\right)\end{aligned} \]</div>
+        <p lang="en">Both are nonlinear: voltage magnitudes multiply each other and the angles sit inside sines and cosines. There is no closed-form solution, so every method guesses a solution and corrects it. The quantity being driven to zero is the mismatch between what is scheduled at a bus and what the current guess implies:</p>
+        <p lang="zh-CN">这两个方程都是非线性的：电压幅值相互相乘，相角出现在正弦和余弦里。它们没有解析解，所有方法都是先猜一个解再不断修正。被迭代逼近零的量是功率不平衡量，即节点的给定功率与当前电压估计值算出的功率之差：</p>
+        <div class="eq">\[ \Delta P_i = \underbrace{P_{Gi}-P_{Di}}_{P_i^{\text{sch}}} - P_i(\theta,|V|),\qquad \Delta Q_i = \underbrace{Q_{Gi}-Q_{Di}}_{Q_i^{\text{sch}}} - Q_i(\theta,|V|) \]</div>
+        <p class="callout" lang="en"><b>Check it yourself.</b> At a flat start (<var>|V|</var> = 1, <var>θ</var> = 0) the computed injections are almost zero, because each row of <var>Y</var><sub>bus</sub> sums to nearly zero. So the first mismatch is essentially the scheduled injection itself. Bus 14 sits between two PQ buses, so there it is exactly −0.149 pu, its 14.9 MW load. At bus 3 it is −0.922 pu rather than −0.942, because the PV setpoints around it are not exactly 1. Find both at iteration 0 in the explorer below.</p>
+        <p class="callout" lang="zh-CN"><b>自己验证一下。</b>平启动时（<var>|V|</var> = 1，<var>θ</var> = 0），算出的注入功率几乎为零，因为 <var>Y</var><sub>bus</sub> 每一行的元素之和接近零。所以第一次的不平衡量基本就是给定注入本身。节点 14 两侧都是 PQ 节点，它的 Δ<var>P</var> 正好是 −0.149 pu，即 14.9 MW 的负荷；节点 3 则是 −0.922 pu 而不是 −0.942 pu，因为它周围 PV 节点的电压设定值不等于 1。可以在下面迭代过程的第 0 次迭代中找到这两个值。</p>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section class="chapter" id="newton">
+      <div class="chap-head"><span class="n">05</span><h2><span lang="en">Newton–Raphson, step by step</span><span lang="zh-CN">牛顿–拉夫逊法：逐步求解</span></h2></div>
+      <div class="indent prose">
+        <p lang="en">Collect the 22 unknowns into one vector and the 22 mismatches into another. A first-order Taylor expansion around the current guess tells us how far to move each unknown to cancel the mismatch. The matrix of partial derivatives is the Jacobian, split into four blocks:</p>
+        <p lang="zh-CN">把 22 个未知量排成一个向量，22 个不平衡量排成另一个向量。在当前估计点做一阶泰勒展开，就能算出每个未知量要修正多少才能消去不平衡量。偏导数组成的矩阵叫雅可比矩阵，分为四块：</p>
+        <div class="eq">\[ \begin{bmatrix}\Delta\mathbf P\\ \Delta\mathbf Q\end{bmatrix} = \underbrace{\begin{bmatrix}\mathbf H & \mathbf N\\ \mathbf M & \mathbf L\end{bmatrix}}_{\mathbf J}\begin{bmatrix}\Delta\theta\\ \Delta|\mathbf V|\end{bmatrix} \]</div>
+        <div class="eq">\[ \begin{aligned} H_{ik}&=\frac{\partial P_i}{\partial\theta_k}=|V_i||V_k|\left(G_{ik}\sin\theta_{ik}-B_{ik}\cos\theta_{ik}\right), & H_{ii}&=-Q_i-B_{ii}|V_i|^2\\ N_{ik}&=\frac{\partial P_i}{\partial|V_k|}=|V_i|\left(G_{ik}\cos\theta_{ik}+B_{ik}\sin\theta_{ik}\right), & N_{ii}&=\frac{P_i}{|V_i|}+G_{ii}|V_i|\\ M_{ik}&=\frac{\partial Q_i}{\partial\theta_k}=-|V_i||V_k|\left(G_{ik}\cos\theta_{ik}+B_{ik}\sin\theta_{ik}\right), & M_{ii}&=P_i-G_{ii}|V_i|^2\\ L_{ik}&=\frac{\partial Q_i}{\partial|V_k|}=|V_i|\left(G_{ik}\sin\theta_{ik}-B_{ik}\cos\theta_{ik}\right), & L_{ii}&=\frac{Q_i}{|V_i|}-B_{ii}|V_i| \end{aligned} \]</div>
+        <h3 class="sub"><span lang="en">The algorithm</span><span lang="zh-CN">算法步骤</span></h3>
+        <ol class="steps" lang="en">
+          <li><span><b>Flat start.</b> Set <var>θ</var> = 0 everywhere, <var>|V|</var> = 1 at PQ buses, and the setpoint at PV and slack buses.</span></li>
+          <li><span>Compute <var>P<sub>i</sub></var>, <var>Q<sub>i</sub></var> from the current guess and form the mismatch vector.</span></li>
+          <li><span>If the largest mismatch is below ε = 10<sup>−8</sup> pu (1 W on a 100 MVA base), stop.</span></li>
+          <li><span>Build <var>J</var> at the current guess and solve <var>J</var> Δ<var>x</var> = [Δ<var>P</var>; Δ<var>Q</var>].</span></li>
+          <li><span>Update <var>θ</var> ← <var>θ</var> + Δ<var>θ</var> and <var>|V|</var> ← <var>|V|</var> + Δ<var>|V|</var>, then go back to step 2.</span></li>
+          <li><span>After convergence, compute the slack bus <var>P</var> and <var>Q</var>, the PV-bus <var>Q</var>, branch flows and losses.</span></li>
+        </ol>
+        <ol class="steps" lang="zh-CN">
+          <li><span><b>平启动。</b>所有节点 <var>θ</var> = 0；PQ 节点 <var>|V|</var> = 1，PV 节点和平衡节点取电压设定值。</span></li>
+          <li><span>用当前电压估计值计算 <var>P<sub>i</sub></var>、<var>Q<sub>i</sub></var>，形成不平衡量向量。</span></li>
+          <li><span>若最大不平衡量小于 ε = 10<sup>−8</sup> pu（100 MVA 基准下即 1 W），停止迭代。</span></li>
+          <li><span>在当前点形成雅可比矩阵 <var>J</var>，求解修正方程 <var>J</var> Δ<var>x</var> = [Δ<var>P</var>; Δ<var>Q</var>]。</span></li>
+          <li><span>更新 <var>θ</var> ← <var>θ</var> + Δ<var>θ</var>，<var>|V|</var> ← <var>|V|</var> + Δ<var>|V|</var>，回到第 2 步。</span></li>
+          <li><span>收敛后，计算平衡节点的 <var>P</var>、<var>Q</var>，PV 节点的 <var>Q</var>，以及支路潮流和网损。</span></li>
+        </ol>
+        <p lang="en">Close to the solution, Newton–Raphson converges quadratically: the number of correct digits roughly doubles every iteration. Step through it below and watch the exponent of the largest mismatch.</p>
+        <p lang="zh-CN">在解附近，牛顿–拉夫逊法具有二阶（平方）收敛性：每迭代一次，有效数字位数大约翻一倍。在下面逐次查看迭代过程，留意最大不平衡量的指数如何变化。</p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3><span lang="en">Iteration explorer</span><span lang="zh-CN">迭代过程</span></h3>
+          <div class="iterbtns" id="iterBtns" role="group" aria-label="Iteration"></div>
+          <span class="small"><span lang="en">Follows the case set in the Lab (07).</span><span lang="zh-CN">随第 07 节实验台的设置变化。</span></span>
+        </div>
+        <div class="explorer">
+          <div>
+            <div class="readout"><span class="eyebrow"><span lang="en">Largest mismatch</span><span lang="zh-CN">最大不平衡量</span></span><b id="exMax">–</b><span class="small" id="exNote"></span></div>
+            <div class="keyrow"><span><i class="sq" style="background:var(--s1)"></i>Δ<var>P</var> <span lang="en">at 13 non-slack buses</span><span lang="zh-CN">（13 个非平衡节点）</span></span><span><i class="sq" style="background:var(--s2)"></i>Δ<var>Q</var> <span lang="en">at 9 PQ buses</span><span lang="zh-CN">（9 个 PQ 节点）</span></span><span><i style="background:var(--ink-2);height:1px"></i>ε = 10<sup>−8</sup></span></div>
+            <svg id="misSvg" class="chart" viewBox="0 0 640 230" role="img" aria-label="Mismatch per equation, log scale"></svg>
+            <div class="scroll-x"><table class="statetbl" id="stateTbl"></table></div>
+          </div>
+          <div>
+            <span class="eyebrow"><span lang="en">Jacobian at this iteration (22 × 22)</span><span lang="zh-CN">本次迭代的雅可比矩阵（22 × 22）</span></span>
+            <div class="scroll-x"><svg id="jacSvg" class="chart" viewBox="0 0 400 400" style="min-width:300px;max-width:460px" role="img" aria-label="Jacobian heatmap"></svg></div>
+            <div class="keyrow" id="jkey"></div>
+            <p class="small" lang="en">The Jacobian has the same sparsity pattern as <var>Y</var><sub>bus</sub>: an entry is nonzero only where two buses share a branch. Its values change every iteration, so each Newton step means a new factorization. That is the cost the next section's methods try to avoid.</p>
+            <p class="small" lang="zh-CN">雅可比矩阵与 <var>Y</var><sub>bus</sub> 的稀疏结构相同：只有两节点之间有支路时，对应元素才非零。它的数值每次迭代都会变，所以每一步牛顿迭代都要重新分解矩阵。下一节的方法正是想要省去这部分计算量。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section class="chapter" id="methods">
+      <div class="chap-head"><span class="n">06</span><h2><span lang="en">Gauss–Seidel and fast decoupled</span><span lang="zh-CN">高斯–赛德尔法与 P-Q 分解法</span></h2></div>
+      <div class="indent prose">
+        <h3 class="sub">Gauss–Seidel</h3>
+        <p lang="en">Gauss–Seidel solves each bus equation for its own voltage, one bus at a time, using the newest values of its neighbours:</p>
+        <p lang="zh-CN">高斯–赛德尔法逐个节点求解自身的电压方程，每次都使用相邻节点的最新值：</p>
+        <div class="eq">\[ V_i \leftarrow \frac{1}{Y_{ii}}\left(\frac{P_i^{\text{sch}}-jQ_i^{\text{sch}}}{V_i^{*}}-\sum_{k\neq i}Y_{ik}V_k\right) \]</div>
+        <p lang="en">At a PV bus, <var>Q<sub>i</sub></var> is first estimated from the current voltages, and <var>|V<sub>i</sub>|</var> is reset to its setpoint after the update. A sweep is cheap, but convergence is only linear and gets slower as the network grows. Here PQ-bus updates use an acceleration factor α = 1.6.</p>
+        <p lang="zh-CN">在 PV 节点，先用当前电压估算 <var>Q<sub>i</sub></var>，更新之后再把 <var>|V<sub>i</sub>|</var> 拉回设定值。每轮迭代计算量很小，但只有线性收敛，网络越大收敛越慢。本页对 PQ 节点使用加速因子 α = 1.6。</p>
+        <h3 class="sub"><span lang="en">Fast decoupled load flow</span><span lang="zh-CN">P-Q 分解法（快速解耦潮流）</span></h3>
+        <p lang="en">Transmission networks have two useful properties: reactance dominates resistance (<var>x</var> ≫ <var>r</var>), and angle differences across branches are small. Then the <var>N</var> and <var>M</var> blocks are small, real power is coupled mainly to angles and reactive power to magnitudes, and the remaining blocks are nearly constant:</p>
+        <p lang="zh-CN">输电网有两个有用的特点：电抗远大于电阻（<var>x</var> ≫ <var>r</var>），支路两端相角差很小。于是 <var>N</var>、<var>M</var> 两块很小，有功主要与相角相关，无功主要与电压幅值相关，剩下的两块近似为常数：</p>
+        <div class="eq">\[ \mathbf B'\,\Delta\theta = \frac{\Delta\mathbf P}{|\mathbf V|},\qquad \mathbf B''\,\Delta|\mathbf V| = \frac{\Delta\mathbf Q}{|\mathbf V|},\qquad B'_{ik}=-\frac{1}{x_{ik}},\quad \mathbf B''=-\operatorname{Im}\mathbf Y_{\text{bus}} \]</div>
+        <p lang="en">This page uses the XB scheme: <var>B′</var> is built from branch reactances only (no resistance, charging or taps), and <var>B″</var> is the negative of the imaginary part of <var>Y</var><sub>bus</sub> on the PQ buses. Both matrices are factored once and reused, so an iteration costs two cheap solves. The approximation only changes the path to the answer. The mismatches are always computed with the full equations, so the converged solution is identical to Newton–Raphson's.</p>
+        <p lang="zh-CN">本页采用 XB 型方案：<var>B′</var> 只用支路电抗形成（忽略电阻、充电电纳和变比），<var>B″</var> 取 PQ 节点对应的 <var>Y</var><sub>bus</sub> 虚部的负值。两个矩阵只需分解一次就可反复使用，每次迭代只要两次很快的回代。近似只改变了迭代路径，不平衡量始终用完整方程计算，所以收敛结果与牛顿法完全相同。</p>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <h3><span lang="en">Convergence from a flat start</span><span lang="zh-CN">从平启动开始的收敛过程</span></h3>
+          <span class="small"><span lang="en">Same case, same tolerance. Follows the Lab (07).</span><span lang="zh-CN">同一算例、同一收敛精度，随第 07 节实验台变化。</span></span>
+        </div>
+        <div class="explorer">
+          <div>
+            <div class="keyrow" id="cmpKey"></div>
+            <svg id="cmpSvg" class="chart" viewBox="0 0 640 270" role="img" aria-label="Largest mismatch versus iteration for three methods"></svg>
+          </div>
+          <div>
+            <div class="scroll-x"><table id="cmpTbl"></table></div>
+            <p class="small" lang="en">Iteration counts alone are misleading. A Gauss–Seidel sweep touches each bus once. A fast decoupled iteration reuses two factorizations. A Newton iteration builds and factors a new 22 × 22 Jacobian. For large systems, Newton–Raphson with sparse factorization usually wins overall, and fast decoupled is popular wherever many similar cases must be solved quickly, such as contingency screening.</p>
+            <p class="small" lang="zh-CN">只比较迭代次数会产生误导。高斯–赛德尔法每轮只把每个节点算一遍；P-Q 分解法每次迭代复用两个已分解的矩阵；牛顿法每次都要重新形成并分解 22 × 22 的雅可比矩阵。对大系统来说，采用稀疏分解的牛顿法通常总体最快；需要快速求解大量相似算例时（例如预想事故扫描），P-Q 分解法很常用。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section class="chapter" id="lab">
+      <div class="chap-head"><span class="n">07</span><h2><span lang="en">Lab: change the system</span><span lang="zh-CN">实验台：改变系统</span></h2></div>
+      <div class="indent prose">
+        <p lang="en">Every change re-runs the solver immediately. Click a bus to edit its load or machine. Click a line to take it out of service, and click it again to restore it. The explorer in 05, the comparison in 06 and the matrix in 03 all follow this case.</p>
+        <p lang="zh-CN">每次修改都会立即重新求解。点击节点可修改负荷或电机参数；点击线路可将其断开，再点一次恢复。第 05 节的迭代过程、第 06 节的方法比较和第 03 节的导纳矩阵都会随这里的算例变化。</p>
+      </div>
+      <div class="lab">
+        <div class="panel">
+          <div class="panel-head" id="labHead"></div>
+          <div class="scroll-x"><svg id="labSvg" class="diagram-svg" viewBox="0 0 900 600" role="img" aria-label="Interactive IEEE 14-bus one-line diagram"></svg></div>
+          <div class="legend" data-legend></div>
+        </div>
+        <div class="panel lab-ctrl">
+          <div>
+            <h4><span lang="en">Solver</span><span lang="zh-CN">求解方法</span></h4>
+            <div class="seg" role="radiogroup" aria-label="Method">
+              <label><input type="radio" name="method" id="m-nr" value="nr" checked><span>NR</span></label>
+              <label><input type="radio" name="method" id="m-fdlf" value="fdlf"><span lang="en">Fast decoupled</span><span lang="zh-CN">P-Q 分解</span></label>
+              <label><input type="radio" name="method" id="m-gs" value="gs"><span>Gauss–Seidel</span></label>
+            </div>
+          </div>
+          <div>
+            <h4><label for="loadScale"><span lang="en">Load factor (all loads)</span><span lang="zh-CN">负荷系数（全部负荷）</span></label></h4>
+            <div class="range"><input type="range" id="loadScale" min="0.5" max="5" step="0.05" value="1"><output id="loadScaleOut" for="loadScale">1.00×</output></div>
+            <p class="small"><span lang="en">Scales every P<sub>D</sub> and Q<sub>D</sub>. Bus 2 stays at its scheduled output, so the slack picks up the difference.</span><span lang="zh-CN">按比例缩放所有 P<sub>D</sub> 和 Q<sub>D</sub>。节点 2 的出力保持计划值，差额全部由平衡机承担。</span></p>
+            <label class="check"><input type="checkbox" id="qlim"><span><span lang="en">Enforce generator Q limits (PV → PQ switching)</span><span lang="zh-CN">考虑发电机无功限值（PV → PQ 转换）</span></span></label>
+            <label class="check"><input type="checkbox" id="showFlows" checked><span><span lang="en">Show MW on lines</span><span lang="zh-CN">在线路上显示有功（MW）</span></span></label>
+          </div>
+          <div id="busEditor">
+            <h4 id="edTitle"></h4>
+            <p class="small" id="edHint"></p>
+            <div class="fields" id="edFields" hidden>
+              <label id="edPdL"><span>P<sub>D</sub> (MW)</span><input type="number" id="edPd" step="0.1"></label>
+              <label id="edQdL"><span>Q<sub>D</sub> (MVAr)</span><input type="number" id="edQd" step="0.1"></label>
+              <label id="edPgL"><span>P<sub>G</sub> (MW)</span><input type="number" id="edPg" step="1"></label>
+              <label id="edVgL"><span>|V|<sub>set</sub> (pu)</span><input type="number" id="edVg" step="0.005" min="0.9" max="1.1"></label>
+            </div>
+          </div>
+          <div>
+            <h4><span lang="en">Branches</span><span lang="zh-CN">支路</span></h4>
+            <p class="small" id="outList"></p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button type="button" class="btn" id="restoreAll"><span lang="en">Restore all lines</span><span lang="zh-CN">恢复所有线路</span></button>
+              <button type="button" class="btn" id="resetCase"><span lang="en">Reset to base case</span><span lang="zh-CN">恢复基础算例</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tables">
+        <div class="panel">
+          <div class="panel-head"><h3><span lang="en">Bus results</span><span lang="zh-CN">节点结果</span></h3><span class="small"><span lang="en">Flag: |V| outside 0.94–1.06 pu</span><span lang="zh-CN">标记：|V| 超出 0.94–1.06 pu</span></span></div>
+          <div class="scroll-x"><table class="res" id="busTbl"></table></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3><span lang="en">Branch flows</span><span lang="zh-CN">支路潮流</span></h3><span class="small"><span lang="en">Measured at each end, into the branch</span><span lang="zh-CN">两端测量，以流入支路为正</span></span></div>
+          <div class="scroll-x"><table class="res" id="brTbl"></table></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section class="chapter" id="exercises">
+      <div class="chap-head"><span class="n">08</span><h2><span lang="en">Exercises</span><span lang="zh-CN">练习</span></h2></div>
+      <div class="indent prose">
+        <p lang="en">Try each one before opening the answer. Most of them use the Lab.</p>
+        <p lang="zh-CN">先自己尝试，再展开答案。大部分题目需要用到实验台。</p>
+      </div>
+      <div class="indent ex" id="exList"></div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p lang="en"><b>Data.</b> IEEE 14-bus test case: a portion of the American Electric Power system as of February 1962, from the University of Washington Power Systems Test Case Archive, with the same values as MATPOWER's <span class="mono">case14</span>. The solver on this page is written from scratch in JavaScript and runs entirely in your browser.</p>
+    <p lang="zh-CN"><b>数据来源。</b>IEEE 14 节点测试系统：美国电力公司（AEP）1962 年 2 月电网的一部分，取自华盛顿大学电力系统测试算例库，参数与 MATPOWER 的 <span class="mono">case14</span> 相同。本页求解器用 JavaScript 从零编写，完全在浏览器中运行。</p>
+    <p><span lang="en">Further reading:</span><span lang="zh-CN">延伸阅读：</span></p>
+    <ul>
+      <li>J. J. Grainger, W. D. Stevenson, <i>Power System Analysis</i>, McGraw-Hill, 1994, ch. 9.</li>
+      <li>J. D. Glover, T. J. Overbye, M. S. Sarma, <i>Power System Analysis and Design</i>, 6th ed., Cengage, 2017, ch. 6.</li>
+      <li>B. Stott, O. Alsac, “Fast decoupled load flow,” <i>IEEE Trans. PAS</i>, vol. 93, no. 3, pp. 859–869, 1974.</li>
+      <li>R. D. Zimmerman, C. E. Murillo-Sánchez, R. J. Thomas, “MATPOWER,” <i>IEEE Trans. Power Systems</i>, vol. 26, no. 1, pp. 12–19, 2011.</li>
+    </ul>
+  </div>
+</footer>
+
+<div id="tip" hidden></div>
+
+<script id="pf-core">
+/* Power flow core: data, Y-bus, Newton–Raphson, fast decoupled (XB), Gauss–Seidel. No DOM access. */
+const PF = (() => {
+  const BASE = 100;
+  // [id, type (3 slack, 2 PV, 1 PQ), Pd MW, Qd MVAr, Gs MW, Bs MVAr]
+  const BUS = [
+    [1,3,0,0,0,0],[2,2,21.7,12.7,0,0],[3,2,94.2,19,0,0],[4,1,47.8,-3.9,0,0],[5,1,7.6,1.6,0,0],
+    [6,2,11.2,7.5,0,0],[7,1,0,0,0,0],[8,2,0,0,0,0],[9,1,29.5,16.6,0,19],[10,1,9,5.8,0,0],
+    [11,1,3.5,1.8,0,0],[12,1,6.1,1.6,0,0],[13,1,13.5,5.8,0,0],[14,1,14.9,5,0,0]];
+  // [bus, Pg MW, Qmax, Qmin, Vset pu, kind]
+  const GEN = [[1,232.4,10,0,1.06,'gen'],[2,40,50,-40,1.045,'gen'],[3,0,40,0,1.01,'sc'],[6,0,24,-6,1.07,'sc'],[8,0,24,-6,1.09,'sc']];
+  // [from, to, r, x, b, tap (0 = line)]
+  const BRANCH = [
+    [1,2,0.01938,0.05917,0.0528,0],[1,5,0.05403,0.22304,0.0492,0],[2,3,0.04699,0.19797,0.0438,0],
+    [2,4,0.05811,0.17632,0.034,0],[2,5,0.05695,0.17388,0.0346,0],[3,4,0.06701,0.17103,0.0128,0],
+    [4,5,0.01335,0.04211,0,0],[4,7,0,0.20912,0,0.978],[4,9,0,0.55618,0,0.969],[5,6,0,0.25202,0,0.932],
+    [6,11,0.09498,0.1989,0,0],[6,12,0.12291,0.25581,0,0],[6,13,0.06615,0.13027,0,0],[7,8,0,0.17615,0,0],
+    [7,9,0,0.11001,0,0],[9,10,0.03181,0.0845,0,0],[9,14,0.12711,0.27038,0,0],[10,11,0.08205,0.19207,0,0],
+    [12,13,0.22092,0.19988,0,0],[13,14,0.17093,0.34802,0,0]];
+
+  function baseCase() {
+    return {
+      buses: BUS.map(b => ({ id: b[0], type: b[1], Pd: b[2], Qd: b[3], Gs: b[4], Bs: b[5] })),
+      gens: GEN.map(g => ({ bus: g[0], Pg: g[1], Qmax: g[2], Qmin: g[3], Vg: g[4], kind: g[5] })),
+      branches: BRANCH.map(r => ({ f: r[0], t: r[1], r: r[2], x: r[3], b: r[4], tap: r[5] || 1, xfmr: r[5] !== 0, on: true })),
+      loadScale: 1, qlim: false
+    };
+  }
+
+  const zeros = (n, m) => Array.from({ length: n }, () => new Float64Array(m));
+
+  function ybus(c) {
+    const n = c.buses.length, G = zeros(n, n), B = zeros(n, n), brY = [];
+    for (const br of c.branches) {
+      const d = br.r * br.r + br.x * br.x, gs = br.r / d, bs = -br.x / d, t = br.tap, hb = br.b / 2;
+      const Y = { ff: [gs / (t * t), (bs + hb) / (t * t)], ft: [-gs / t, -bs / t], tf: [-gs / t, -bs / t], tt: [gs, bs + hb] };
+      brY.push(Y);
+      if (!br.on) continue;
+      const f = br.f - 1, k = br.t - 1;
+      G[f][f] += Y.ff[0]; B[f][f] += Y.ff[1]; G[k][k] += Y.tt[0]; B[k][k] += Y.tt[1];
+      G[f][k] += Y.ft[0]; B[f][k] += Y.ft[1]; G[k][f] += Y.tf[0]; B[k][f] += Y.tf[1];
+    }
+    c.buses.forEach((b, i) => { G[i][i] += b.Gs / BASE; B[i][i] += b.Bs / BASE; });
+    return { n, G, B, brY };
+  }
+
+  function setup(c) {
+    const s = ybus(c), n = s.n;
+    s.type = Int8Array.from(c.buses.map(b => b.type));
+    s.Vset = new Float64Array(n).fill(1);
+    s.Pd = Float64Array.from(c.buses.map(b => b.Pd * c.loadScale));
+    s.Qd = Float64Array.from(c.buses.map(b => b.Qd * c.loadScale));
+    s.Pg = new Float64Array(n);
+    for (const g of c.gens) { s.Vset[g.bus - 1] = g.Vg; s.Pg[g.bus - 1] += g.Pg; }
+    s.Psch = s.Pg.map((p, i) => (p - s.Pd[i]) / BASE);
+    s.Qsch = s.Qd.map(q => -q / BASE);
+    s.branches = c.branches;
+    return s;
+  }
+
+  function injections(s, V, th) {
+    const n = s.n, P = new Float64Array(n), Q = new Float64Array(n);
+    for (let i = 0; i < n; i++) for (let k = 0; k < n; k++) {
+      const g = s.G[i][k], b = s.B[i][k];
+      if (g === 0 && b === 0) continue;
+      const a = th[i] - th[k], cs = Math.cos(a), sn = Math.sin(a), vv = V[i] * V[k];
+      P[i] += vv * (g * cs + b * sn);
+      Q[i] += vv * (g * sn - b * cs);
+    }
+    return { P, Q };
+  }
+
+  function indices(type) {
+    const pvpq = [], pq = [];
+    type.forEach((t, i) => { if (t !== 3) pvpq.push(i); if (t === 1) pq.push(i); });
+    return { pvpq, pq };
+  }
+
+  function mismatch(s, P, Q, ix) {
+    const F = new Float64Array(ix.pvpq.length + ix.pq.length);
+    ix.pvpq.forEach((i, a) => { F[a] = s.Psch[i] - P[i]; });
+    ix.pq.forEach((i, b) => { F[ix.pvpq.length + b] = s.Qsch[i] - Q[i]; });
+    return F;
+  }
+
+  const maxAbs = F => F.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+
+  function jacobian(s, V, th, P, Q, ix) {
+    const n = s.n, np = ix.pvpq.length, m = np + ix.pq.length, J = zeros(m, m);
+    const pp = new Int32Array(n).fill(-1), qp = new Int32Array(n).fill(-1);
+    ix.pvpq.forEach((i, a) => { pp[i] = a; });
+    ix.pq.forEach((i, b) => { qp[i] = b; });
+    for (let i = 0; i < n; i++) {
+      const ri = pp[i], rq = qp[i];
+      if (ri < 0) continue;
+      for (let k = 0; k < n; k++) {
+        const g = s.G[i][k], b = s.B[i][k];
+        if (g === 0 && b === 0) continue;
+        const ck = pp[k], cq = qp[k];
+        if (i === k) {
+          const v = V[i];
+          J[ri][ck] = -Q[i] - b * v * v;
+          if (cq >= 0) J[ri][np + cq] = P[i] / v + g * v;
+          if (rq >= 0) { J[np + rq][ck] = P[i] - g * v * v; J[np + rq][np + cq] = Q[i] / v - b * v; }
+        } else {
+          const a = th[i] - th[k], cs = Math.cos(a), sn = Math.sin(a);
+          const s1 = g * sn - b * cs, c1 = g * cs + b * sn;
+          if (ck >= 0) J[ri][ck] = V[i] * V[k] * s1;
+          if (cq >= 0) J[ri][np + cq] = V[i] * c1;
+          if (rq >= 0) {
+            if (ck >= 0) J[np + rq][ck] = -V[i] * V[k] * c1;
+            if (cq >= 0) J[np + rq][np + cq] = V[i] * s1;
+          }
+        }
+      }
+    }
+    return J;
+  }
+
+  // LU with partial pivoting; returns a solver or null if singular.
+  function lu(A0) {
+    const m = A0.length, A = A0.map(r => Float64Array.from(r)), piv = Int32Array.from({ length: m }, (_, i) => i);
+    for (let c = 0; c < m; c++) {
+      let p = c, best = Math.abs(A[c][c]);
+      for (let r = c + 1; r < m; r++) if (Math.abs(A[r][c]) > best) { best = Math.abs(A[r][c]); p = r; }
+      if (best < 1e-12) return null;
+      if (p !== c) { [A[p], A[c]] = [A[c], A[p]]; [piv[p], piv[c]] = [piv[c], piv[p]]; }
+      for (let r = c + 1; r < m; r++) {
+        const f = A[r][c] / A[c][c];
+        if (f === 0) continue;
+        A[r][c] = f;
+        for (let k = c + 1; k < m; k++) A[r][k] -= f * A[c][k];
+      }
+    }
+    return rhs => {
+      const x = new Float64Array(m);
+      for (let i = 0; i < m; i++) { let v = rhs[piv[i]]; for (let k = 0; k < i; k++) v -= A[i][k] * x[k]; x[i] = v; }
+      for (let i = m - 1; i >= 0; i--) { let v = x[i]; for (let k = i + 1; k < m; k++) v -= A[i][k] * x[k]; x[i] = v / A[i][i]; }
+      return x;
+    };
+  }
+
+  const snap = (V, th, F, norm, extra) => Object.assign({ V: Float64Array.from(V), th: Float64Array.from(th), F, norm }, extra);
+  const blewUp = norm => !isFinite(norm) || norm > 1e6;
+
+  function nr(s, V, th, o) {
+    const ix = indices(s.type), np = ix.pvpq.length, hist = [];
+    for (let it = 0; ; it++) {
+      const { P, Q } = injections(s, V, th), F = mismatch(s, P, Q, ix), norm = maxAbs(F);
+      const J = blewUp(norm) ? null : jacobian(s, V, th, P, Q, ix);
+      hist.push(snap(V, th, F, norm, { J }));
+      if (norm < o.tol) return { ok: true, it, hist, V, th, ix };
+      if (it >= o.maxIt || blewUp(norm)) return { ok: false, it, hist, V, th, ix };
+      const solve = lu(J);
+      if (!solve) return { ok: false, singular: true, it, hist, V, th, ix };
+      const dx = solve(F);
+      ix.pvpq.forEach((i, a) => { th[i] += dx[a]; });
+      ix.pq.forEach((i, b) => { V[i] += dx[np + b]; });
+    }
+  }
+
+  function fdlf(s, V, th, o) {
+    const ix = indices(s.type), np = ix.pvpq.length, nq = ix.pq.length, hist = [];
+    const pp = new Int32Array(s.n).fill(-1);
+    ix.pvpq.forEach((i, a) => { pp[i] = a; });
+    const Bp = zeros(np, np), Bpp = zeros(nq, nq);
+    for (const br of s.branches) {
+      if (!br.on) continue;
+      const y = 1 / br.x, a = pp[br.f - 1], b = pp[br.t - 1];
+      if (a >= 0) Bp[a][a] += y;
+      if (b >= 0) Bp[b][b] += y;
+      if (a >= 0 && b >= 0) { Bp[a][b] -= y; Bp[b][a] -= y; }
+    }
+    ix.pq.forEach((i, a) => ix.pq.forEach((k, b) => { Bpp[a][b] = -s.B[i][k]; }));
+    const sp = lu(Bp), sq = nq ? lu(Bpp) : (() => new Float64Array(0));
+    if (!sp || !sq) return { ok: false, singular: true, it: 0, hist, V, th, ix };
+    for (let it = 0; ; it++) {
+      let { P, Q } = injections(s, V, th);
+      const F = mismatch(s, P, Q, ix), norm = maxAbs(F);
+      hist.push(snap(V, th, F, norm));
+      if (norm < o.tol) return { ok: true, it, hist, V, th, ix };
+      if (it >= o.maxIt || blewUp(norm)) return { ok: false, it, hist, V, th, ix };
+      const dth = sp(ix.pvpq.map((i, a) => F[a] / V[i]));
+      ix.pvpq.forEach((i, a) => { th[i] += dth[a]; });
+      ({ Q } = injections(s, V, th));
+      const dV = sq(ix.pq.map(i => (s.Qsch[i] - Q[i]) / V[i]));
+      ix.pq.forEach((i, b) => { V[i] += dV[b]; });
+    }
+  }
+
+  function gs(s, V, th, o) {
+    const n = s.n, ix = indices(s.type), hist = [], G = s.G, B = s.B;
+    const e = Float64Array.from(V, (v, i) => v * Math.cos(th[i])), f = Float64Array.from(V, (v, i) => v * Math.sin(th[i]));
+    for (let it = 0; ; it++) {
+      for (let i = 0; i < n; i++) { V[i] = Math.hypot(e[i], f[i]); th[i] = Math.atan2(f[i], e[i]); }
+      const { P, Q } = injections(s, V, th), F = mismatch(s, P, Q, ix), norm = maxAbs(F);
+      hist.push(snap(V, th, F, norm));
+      if (norm < o.tol) return { ok: true, it, hist, V, th, ix };
+      if (it >= o.maxIt || blewUp(norm)) return { ok: false, it, hist, V, th, ix };
+      for (let i = 0; i < n; i++) {
+        if (s.type[i] === 3) continue;
+        let sr = 0, si = 0;
+        for (let k = 0; k < n; k++) {
+          if (k === i) continue;
+          const g = G[i][k], b = B[i][k];
+          if (g === 0 && b === 0) continue;
+          sr += g * e[k] - b * f[k]; si += g * f[k] + b * e[k];
+        }
+        let q = s.Qsch[i];
+        if (s.type[i] === 2) {
+          const Ir = sr + G[i][i] * e[i] - B[i][i] * f[i], Ii = si + G[i][i] * f[i] + B[i][i] * e[i];
+          q = f[i] * Ir - e[i] * Ii;
+        }
+        const p = s.Psch[i], m2 = e[i] * e[i] + f[i] * f[i];
+        const nr_ = (p * e[i] + q * f[i]) / m2 - sr, ni = (p * f[i] - q * e[i]) / m2 - si;
+        const gi = G[i][i], bi = B[i][i], d = gi * gi + bi * bi;
+        let ve = (nr_ * gi + ni * bi) / d, vf = (ni * gi - nr_ * bi) / d;
+        if (s.type[i] === 2) { const mag = Math.hypot(ve, vf); ve *= s.Vset[i] / mag; vf *= s.Vset[i] / mag; }
+        else { ve = e[i] + o.alpha * (ve - e[i]); vf = f[i] + o.alpha * (vf - f[i]); }
+        e[i] = ve; f[i] = vf;
+      }
+    }
+  }
+
+  function islanded(c) {
+    const n = c.buses.length, adj = Array.from({ length: n }, () => []);
+    for (const br of c.branches) if (br.on) { adj[br.f - 1].push(br.t - 1); adj[br.t - 1].push(br.f - 1); }
+    const seen = new Uint8Array(n), stack = [c.buses.findIndex(b => b.type === 3)];
+    seen[stack[0]] = 1;
+    while (stack.length) for (const k of adj[stack.pop()]) if (!seen[k]) { seen[k] = 1; stack.push(k); }
+    return c.buses.filter((_, i) => !seen[i]).map(b => b.id);
+  }
+
+  const RUN = { nr, fdlf, gs };
+  const MAXIT = { nr: 30, fdlf: 100, gs: 1500 };
+
+  function solve(c, method, opt) {
+    const o = Object.assign({ tol: 1e-8, maxIt: MAXIT[method], alpha: 1.6 }, opt);
+    const isl = islanded(c);
+    if (isl.length) return { status: 'islanded', islanded: isl, method };
+    const s = setup(c), run = RUN[method];
+    const V = Float64Array.from(s.Vset), th = new Float64Array(s.n);
+    let r = run(s, V, th, o), total = r.it;
+    const limited = [];
+    if (c.qlim && r.ok) {
+      for (let pass = 0; pass < 10; pass++) {
+        const { Q } = injections(s, r.V, r.th), viol = [];
+        for (const g of c.gens) {
+          const i = g.bus - 1;
+          if (s.type[i] !== 2) continue;
+          const qg = Q[i] * BASE + s.Qd[i];
+          if (qg > g.Qmax + 1e-6) viol.push([i, g.Qmax, 'max', qg]);
+          else if (qg < g.Qmin - 1e-6) viol.push([i, g.Qmin, 'min', qg]);
+        }
+        if (!viol.length) break;
+        for (const [i, q, side, qg] of viol) { s.type[i] = 1; s.Qsch[i] = (q - s.Qd[i]) / BASE; limited.push({ bus: i + 1, q, side, qg }); }
+        r = run(s, Float64Array.from(r.V), Float64Array.from(r.th), o);
+        total += r.it;
+        if (!r.ok) break;
+      }
+    }
+    const out = { status: r.ok ? 'ok' : 'fail', method, it: r.it, total, hist: r.hist, ix: r.ix, s, limited, singular: !!r.singular };
+    if (!r.ok) return out;
+    const V2 = r.V, T2 = r.th, { P, Q } = injections(s, V2, T2);
+    const genAt = {};
+    c.gens.forEach(g => { genAt[g.bus] = g; });
+    out.buses = c.buses.map((b, i) => ({
+      id: b.id, type: s.type[i], baseType: b.type, Vm: V2[i], Va: T2[i] * 180 / Math.PI,
+      gen: genAt[b.id] || null,
+      Pg: genAt[b.id] ? P[i] * BASE + s.Pd[i] : 0, Qg: genAt[b.id] ? Q[i] * BASE + s.Qd[i] : 0,
+      Pd: s.Pd[i], Qd: s.Qd[i]
+    }));
+    const cx = i => [V2[i] * Math.cos(T2[i]), V2[i] * Math.sin(T2[i])];
+    const mul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+    const add = (a, b) => [a[0] + b[0], a[1] + b[1]];
+    const sOf = (v, cur) => [(v[0] * cur[0] + v[1] * cur[1]) * BASE, (v[1] * cur[0] - v[0] * cur[1]) * BASE];
+    out.branches = c.branches.map((br, j) => {
+      if (!br.on) return { on: false };
+      const Y = s.brY[j], vf = cx(br.f - 1), vt = cx(br.t - 1);
+      const If = add(mul(Y.ff, vf), mul(Y.ft, vt)), It = add(mul(Y.tf, vf), mul(Y.tt, vt));
+      const Sf = sOf(vf, If), St = sOf(vt, It);
+      return { on: true, Pf: Sf[0], Qf: Sf[1], Pt: St[0], Qt: St[1], Pl: Sf[0] + St[0], Ql: Sf[1] + St[1] };
+    });
+    const sum = (arr, k) => arr.reduce((a, x) => a + (x[k] || 0), 0);
+    let vmin = out.buses[0];
+    out.buses.forEach(b => { if (b.Vm < vmin.Vm) vmin = b; });
+    out.totals = { Pg: sum(out.buses, 'Pg'), Qg: sum(out.buses, 'Qg'), Pd: sum(out.buses, 'Pd'), Qd: sum(out.buses, 'Qd'), Pl: sum(out.branches, 'Pl'), Ql: sum(out.branches, 'Ql'), vmin };
+    return out;
+  }
+
+  return { BASE, baseCase, ybus, solve, islanded };
+})();
+</script>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const NS = 'http://www.w3.org/2000/svg';
+function S(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const minus = s => s.replace(/-/g, '−');
+const fx = (v, d) => minus((Math.abs(v) < 0.5 * Math.pow(10, -d) ? 0 : v).toFixed(d));
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+const pow10 = e => '10' + String(e).split('').map(ch => SUP[ch]).join('');
+function sci(v) {
+  if (v === 0) return '0';
+  if (!isFinite(v)) return '∞';
+  const e = Math.floor(Math.log10(Math.abs(v))), m = v / Math.pow(10, e);
+  if (e >= -2 && e <= 2) return fx(v, Math.max(0, 3 - e));
+  return minus(m.toFixed(2)) + '×' + pow10(e);
+}
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+
+/* ---------- language ---------- */
+const T = {
+  en: {
+    slack: 'Slack', pv: 'PV', pq: 'PQ',
+    nr: 'Newton–Raphson', fdlf: 'Fast decoupled', gs: 'Gauss–Seidel',
+    iters: n => n === 1 ? '1 iteration' : `${n} iterations`,
+    heroIter: n => `Newton–Raphson, ${n} iterations`,
+    ok: 'Converged', fail: 'Did not converge', isl: 'Islanded',
+    gen: 'Generation', load: 'Load', loss: 'Losses', vmin: 'Lowest |V|', atBus: b => `bus ${b}`,
+    failMsg: 'The solver hit its iteration limit without converging. The load may be beyond what the network can deliver, or the method cannot handle this case from a flat start. Lower the load factor or switch to Newton–Raphson.',
+    singMsg: 'The Jacobian became singular. The case is at or beyond its loadability limit. Lower the load factor.',
+    islMsg: l => `Bus ${l} lost every connection to the slack bus, so the power flow has no solution. Click a dashed line to restore it.`,
+    qlimHit: l => `Q limit reached at ${l}. Switched to PQ.`,
+    noBus: 'Click a bus on the diagram to edit its load or machine.',
+    editing: b => `Bus ${b}`,
+    edSlack: 'Slack bus. Its P and Q come out of the solution; only the voltage setpoint is fixed.',
+    edPV: k => k === 'sc' ? 'PV bus with a synchronous condenser (P = 0).' : 'PV bus with a generator.',
+    edPQ: 'PQ bus. Loads are entered at load factor 1.00×.',
+    noOut: 'All 20 branches in service. Click a line on the diagram to take it out.',
+    outs: l => `Out of service: ${l}.`,
+    bus: 'Bus', type: 'Type', vm: '|V| pu', va: 'θ °', pg: 'P<sub>G</sub> MW', qg: 'Q<sub>G</sub> MVAr', pd: 'P<sub>D</sub> MW', qd: 'Q<sub>D</sub> MVAr',
+    branch: 'Branch', pf: 'P<sub>from</sub> MW', qf: 'Q<sub>from</sub> MVAr', pt: 'P<sub>to</sub> MW', qt: 'Q<sub>to</sub> MVAr', pl: 'Loss MW',
+    off: 'out of service', noRes: 'No results: the case has no valid solution.',
+    tipBus: (b, ty) => `<b>Bus ${b}</b> · ${ty}`,
+    tipLoad: 'Load', tipGen: 'Generator', tipSC: 'Condenser', tipShunt: 'Shunt capacitor 19 MVAr',
+    tipLine: (f, t, x) => `<b>${x ? 'Transformer' : 'Line'} ${f}–${t}</b>`,
+    tipLoss: 'loss', clickBus: 'Click to edit', clickOut: 'Click to take out of service', clickIn: 'Out of service. Click to restore.',
+    explNote: (k, n) => `iteration ${k} of ${n}`, explConv: 'below ε: converged', explFail: 'NR did not converge for this case.',
+    stV: '|V|', stA: 'θ °',
+    yTip: (i, k, g, b) => `<b>Y<sub>${i},${k}</b></sub><br><span class="m">${g} ${b}</span> pu`,
+    yNnz: (nz) => `${nz} nonzeros of 196`,
+    yAbs: 'larger |Y|', yNeg: 'negative', yPos: 'positive',
+    jTip: (r, c, v) => `<b>∂${r} / ∂${c}</b><br><span class="m">${v}</span>`,
+    jKey: 'darker = larger |J<sub>ik</sub>|, log scale',
+    cmpMethod: 'Method', cmpIt: 'Iterations', cmpCost: 'Work per iteration', diverged: 'did not converge',
+    costNR: 'new 22 × 22 Jacobian + factorization', costFD: 'two solves with fixed B′, B″', costGS: 'one sweep over 13 buses',
+    cmpTip: k => `<b>Iteration ${k}</b>`,
+    misTip: (q, b, v) => `<b>Δ${q} at bus ${b}</b><br><span class="m">${v}</span> pu`,
+    axIter: 'iteration', axMis: 'largest mismatch (pu)',
+    hiddenGS: (n) => `Gauss–Seidel continues to iteration ${n}`,
+    lgV: '|V| pu', lgFlow: 'MW flow (width, direction)', lgGen: 'generator', lgSC: 'sync. condenser', lgLoad: 'load', lgX: 'transformer',
+    loadAt: 'Load'
+  },
+  zh: {
+    slack: '平衡', pv: 'PV', pq: 'PQ',
+    nr: '牛顿–拉夫逊法', fdlf: 'P-Q 分解法', gs: '高斯–赛德尔法',
+    iters: n => `${n} 次迭代`,
+    heroIter: n => `牛顿–拉夫逊法，${n} 次迭代`,
+    ok: '已收敛', fail: '未收敛', isl: '出现孤岛',
+    gen: '总发电', load: '总负荷', loss: '网损', vmin: '最低 |V|', atBus: b => `节点 ${b}`,
+    failMsg: '达到迭代次数上限仍未收敛。负荷可能已超出电网的输送能力，或该方法无法从平启动求解此算例。请降低负荷系数或改用牛顿–拉夫逊法。',
+    singMsg: '雅可比矩阵奇异：算例已达到或超过静态电压稳定极限。请降低负荷系数。',
+    islMsg: l => `节点 ${l} 与平衡节点之间已没有任何连接，潮流无解。点击虚线恢复线路。`,
+    qlimHit: l => `${l} 达到无功限值，已转为 PQ 节点。`,
+    noBus: '点击图中的节点，修改其负荷或电机参数。',
+    editing: b => `节点 ${b}`,
+    edSlack: '平衡节点：P、Q 由计算结果得出，只给定电压设定值。',
+    edPV: k => k === 'sc' ? 'PV 节点，接同步调相机（P = 0）。' : 'PV 节点，接发电机。',
+    edPQ: 'PQ 节点。负荷按负荷系数 1.00× 时的数值输入。',
+    noOut: '20 条支路全部投运。点击图中线路可将其断开。',
+    outs: l => `已断开：${l}。`,
+    bus: '节点', type: '类型', vm: '|V| pu', va: 'θ °', pg: 'P<sub>G</sub> MW', qg: 'Q<sub>G</sub> MVAr', pd: 'P<sub>D</sub> MW', qd: 'Q<sub>D</sub> MVAr',
+    branch: '支路', pf: 'P<sub>首端</sub> MW', qf: 'Q<sub>首端</sub> MVAr', pt: 'P<sub>末端</sub> MW', qt: 'Q<sub>末端</sub> MVAr', pl: '损耗 MW',
+    off: '已断开', noRes: '无结果：该算例没有有效解。',
+    tipBus: (b, ty) => `<b>节点 ${b}</b> · ${ty}`,
+    tipLoad: '负荷', tipGen: '发电机', tipSC: '调相机', tipShunt: '并联电容器 19 MVAr',
+    tipLine: (f, t, x) => `<b>${x ? '变压器' : '线路'} ${f}–${t}</b>`,
+    tipLoss: '损耗', clickBus: '点击修改', clickOut: '点击断开', clickIn: '已断开，点击恢复。',
+    explNote: (k, n) => `第 ${k} 次，共 ${n} 次`, explConv: '小于 ε：已收敛', explFail: '该算例下牛顿法未收敛。',
+    stV: '|V|', stA: 'θ °',
+    yTip: (i, k, g, b) => `<b>Y<sub>${i},${k}</sub></b><br><span class="m">${g} ${b}</span> pu`,
+    yNnz: (nz) => `196 个元素中 ${nz} 个非零`,
+    yAbs: '|Y| 越大颜色越深', yNeg: '负值', yPos: '正值',
+    jTip: (r, c, v) => `<b>∂${r} / ∂${c}</b><br><span class="m">${v}</span>`,
+    jKey: '颜色越深 |J<sub>ik</sub>| 越大（对数刻度）',
+    cmpMethod: '方法', cmpIt: '迭代次数', cmpCost: '每次迭代的计算量', diverged: '未收敛',
+    costNR: '重新形成并分解 22 × 22 雅可比矩阵', costFD: '用固定的 B′、B″ 回代两次', costGS: '对 13 个节点扫描一遍',
+    cmpTip: k => `<b>第 ${k} 次迭代</b>`,
+    misTip: (q, b, v) => `<b>节点 ${b} 的 Δ${q}</b><br><span class="m">${v}</span> pu`,
+    axIter: '迭代次数', axMis: '最大不平衡量 (pu)',
+    hiddenGS: (n) => `高斯–赛德尔法一直迭代到第 ${n} 次`,
+    lgV: '|V| pu', lgFlow: '有功潮流（线宽、方向）', lgGen: '发电机', lgSC: '同步调相机', lgLoad: '负荷', lgX: '变压器',
+    loadAt: '负荷'
+  }
+};
+let LANG = 'en';
+const t = (k, ...a) => { const v = T[LANG][k] ?? T.en[k]; return typeof v === 'function' ? v(...a) : v; };
+const typeName = ty => ty === 3 ? t('slack') : ty === 2 ? t('pv') : t('pq');
+
+/* ---------- colors from tokens ---------- */
+let C = {};
+function hex(h) { h = h.trim().replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); }
+function readTokens() {
+  const cs = getComputedStyle(document.documentElement);
+  for (const k of ['v-lo', 'v-mid', 'v-hi', 'seq-lo', 'seq-hi', 'panel', 'rule']) C[k] = hex(cs.getPropertyValue('--' + k));
+}
+const mix = (a, b, u) => `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * u)).join(',')})`;
+function vColor(v) {
+  const u = (v - 1) / 0.06;
+  return u < 0 ? mix(C['v-mid'], C['v-lo'], Math.min(1, -u)) : mix(C['v-mid'], C['v-hi'], Math.min(1, u));
+}
+const seqColor = u => mix(C['seq-lo'], C['seq-hi'], clamp(u, 0, 1));
+const divColor = (sgn, u) => mix(C['v-mid'], sgn < 0 ? C['v-lo'] : C['v-hi'], clamp(u, 0, 1));
+
+/* ---------- state ---------- */
+let CASE = PF.baseCase();
+let METHOD = 'nr';
+let SEL = null;
+let YMODE = 'abs';
+let EXK = 0;
+let RES, NRRES, CMP, BASERES;
+
+/* ---------- diagram geometry ---------- */
+const POS = { 1: [90, 330], 2: [190, 500], 3: [460, 540], 4: [470, 400], 5: [290, 330], 6: [290, 190], 7: [650, 400],
+  8: [800, 400], 9: [650, 260], 10: [560, 175], 11: [430, 125], 12: [130, 85], 13: [320, 55], 14: [720, 95] };
+const LBL = { 1: [0, -26, 'middle'], 2: [-36, -2, 'end'], 3: [40, -6, 'start'], 4: [-36, -2, 'end'], 5: [12, -24, 'start'],
+  6: [40, -2, 'start'], 7: [0, 26, 'middle'], 8: [0, 26, 'middle'], 9: [-36, -2, 'end'], 10: [36, -2, 'start'],
+  11: [0, -24, 'middle'], 12: [-36, -2, 'end'], 13: [0, -24, 'middle'], 14: [36, -2, 'start'] };
+const GENPOS = { 1: 'left', 2: 'below', 3: 'below', 6: 'left', 8: 'right' };
+const LOADX = { 2: -27, 3: 27, 4: 27, 5: 0, 6: -24, 9: 27, 10: -24, 11: 0, 12: -24, 13: 12, 14: 24 };
+const HALF = 30;
+
+function branchPts(f, to) {
+  const [x1, y1] = POS[f], [x2, y2] = POS[to];
+  const a1 = [x1 + clamp((x2 - x1) * 0.25, -22, 22), y1], a2 = [x2 + clamp((x1 - x2) * 0.25, -22, 22), y2];
+  const dy = y2 - y1;
+  if (Math.abs(dy) <= 50) return [a1, a2];
+  const s = Math.sign(dy) * 14;
+  return [a1, [a1[0], a1[1] + s], [a2[0], a2[1] - s], a2];
+}
+const ptsD = pts => 'M' + pts.map(p => p.map(v => v.toFixed(1)).join(' ')).join('L');
+
+function renderDiagram(svg, res, opt) {
+  svg.textContent = '';
+  const showFlows = opt.showFlows, interactive = opt.interactive;
+  const ok = res && res.status === 'ok';
+  const isl = res && res.status === 'islanded' ? new Set(res.islanded) : new Set();
+  const gLines = S('g', null, svg), gSym = S('g', null, svg), gBus = S('g', null, svg), gLab = S('g', null, svg);
+  let maxP = 1;
+  if (ok) res.branches.forEach(b => { if (b.on) maxP = Math.max(maxP, Math.abs(b.Pf), Math.abs(b.Pt)); });
+  maxP = Math.max(maxP, 120);
+
+  CASE.branches.forEach((br, j) => {
+    const pts = branchPts(br.f, br.t), d = ptsD(pts);
+    const r = ok ? res.branches[j] : null;
+    const mid = pts.length === 2 ? 0 : 1;
+    const A = pts[mid], B = pts[mid + 1];
+    const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2;
+    const ang = Math.atan2(B[1] - A[1], B[0] - A[0]);
+    let tip;
+    if (!br.on) {
+      S('path', { d, class: 'dg-out' }, gLines);
+      S('path', { d: `M${mx - 5} ${my - 5}L${mx + 5} ${my + 5}M${mx + 5} ${my - 5}L${mx - 5} ${my + 5}`, class: 'dg-x' }, gLines);
+      tip = t('tipLine', br.f, br.t, br.xfmr) + '<br>' + t('clickIn');
+    } else {
+      const pAvg = r ? (r.Pf - r.Pt) / 2 : 0;
+      const w = 1.4 + 5 * Math.abs(pAvg) / maxP;
+      S('path', { d, class: 'dg-line', 'stroke-width': w.toFixed(2) }, gLines);
+      if (r && Math.abs(pAvg) > 0.05) {
+        const dir = pAvg >= 0 ? pts : pts.slice().reverse();
+        const fl = S('path', { d: ptsD(dir), class: 'dg-flow', 'stroke-width': Math.max(1.6, w * 0.6).toFixed(2) }, gLines);
+        fl.style.animationDuration = clamp(3.2 - Math.abs(pAvg) / 40, 0.7, 3.2).toFixed(2) + 's';
+        const a = pAvg >= 0 ? ang : ang + Math.PI, u = br.xfmr ? 0.22 : 0.5;
+        const cx = A[0] + (B[0] - A[0]) * u, cy = A[1] + (B[1] - A[1]) * u;
+        const ch = [[6, 0], [-4, -4.5], [-4, 4.5]].map(([x, y]) => [cx + x * Math.cos(a) - y * Math.sin(a), cy + x * Math.sin(a) + y * Math.cos(a)]);
+        S('path', { d: ptsD(ch) + 'Z', class: 'dg-chev' }, gLines);
+        if (showFlows) {
+          const nx = -Math.sin(ang), ny = Math.cos(ang), off = 11;
+          const lx = mx + nx * off * (ny < 0 ? -1 : 1), ly = my + ny * off * (ny < 0 ? -1 : 1);
+          const tx = S('text', { x: lx.toFixed(1), y: (ly + 3).toFixed(1), class: 'dg-flab', 'text-anchor': 'middle' }, gLab);
+          tx.textContent = fx(Math.abs(pAvg), 1);
+        }
+      }
+      tip = t('tipLine', br.f, br.t, br.xfmr) + (r ? `<br><span class="m">${fx(r.Pf, 1)} MW, ${fx(r.Qf, 1)} MVAr</span> @${br.f}<br><span class="m">${fx(r.Pt, 1)} MW, ${fx(r.Qt, 1)} MVAr</span> @${br.t}<br>${t('tipLoss')} <span class="m">${fx(r.Pl, 2)} MW</span>` : '') + (interactive ? '<br>' + t('clickOut') : '');
+      if (br.xfmr) {
+        const ux = Math.cos(ang) * 4.5, uy = Math.sin(ang) * 4.5;
+        S('circle', { cx: mx - ux, cy: my - uy, r: 6.5, class: 'dg-sym' }, gSym);
+        S('circle', { cx: mx + ux, cy: my + uy, r: 6.5, class: 'dg-sym', 'fill-opacity': 0.6 }, gSym);
+      }
+    }
+    const hit = S('path', { d, class: 'dg-hit', 'data-tip': tip }, gSym);
+    if (!interactive) hit.style.cursor = 'default';
+    else {
+      hit.setAttribute('tabindex', '0'); hit.setAttribute('role', 'button');
+      hit.setAttribute('aria-label', `${br.f}–${br.t}`);
+      const act = () => { br.on = !br.on; recompute(); };
+      hit.addEventListener('click', act);
+      hit.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } });
+    }
+  });
+
+  CASE.buses.forEach((bus, i) => {
+    const id = bus.id, [x, y] = POS[id];
+    const br = ok ? res.buses[i] : null;
+    const g = S('g', { class: interactive ? 'dg-bus' : '' }, gBus);
+    const gen = CASE.gens.find(q => q.bus === id);
+    // machine
+    if (gen) {
+      const side = GENPOS[id];
+      let cx = x, cy = y, sd;
+      if (side === 'left') { cx = x - HALF - 26; sd = `M${x - HALF} ${y}H${cx + 12}`; }
+      else if (side === 'right') { cx = x + HALF + 26; sd = `M${x + HALF} ${y}H${cx - 12}`; }
+      else { cy = y + 34; sd = `M${x} ${y + 4}V${cy - 12}`; }
+      S('path', { d: sd, class: 'dg-stub' }, g);
+      S('circle', { cx, cy, r: 12, class: 'dg-sym' }, g);
+      if (gen.kind === 'gen') S('path', { d: `M${cx - 6} ${cy}c2-5 4-5 6 0s4 5 6 0`, class: 'dg-stub' }, g);
+      else { const tx = S('text', { x: cx, y: cy + 4, 'text-anchor': 'middle', class: 'dg-symt' }, g); tx.textContent = 'C'; }
+    }
+    if (LOADX[id] !== undefined) {
+      const lx = x + LOADX[id];
+      S('path', { d: `M${lx} ${y + 4}V${y + 17}`, class: 'dg-stub' }, g);
+      S('path', { d: `M${lx - 4.5} ${y + 16}L${lx + 4.5} ${y + 16}L${lx} ${y + 23}Z`, class: 'dg-load' }, g);
+    }
+    if (bus.Bs) {
+      const sx = x + HALF;
+      S('path', { d: `M${sx} ${y}H${sx + 11}M${sx + 11} ${y - 8}V${y + 8}M${sx + 16} ${y - 8}V${y + 8}M${sx + 16} ${y}H${sx + 24}M${sx + 24} ${y - 5}V${y + 5}M${sx + 27} ${y - 3}V${y + 3}`, class: 'dg-stub' }, g);
+    }
+    const fill = isl.has(id) ? `rgb(${C.rule.join(',')})` : br ? vColor(br.Vm) : 'var(--wire)';
+    if (SEL === id && interactive) S('rect', { x: x - HALF - 4, y: y - 8, width: 2 * HALF + 8, height: 16, rx: 3, class: 'dg-sel' }, g);
+    S('rect', { x: x - HALF, y: y - 4, width: 2 * HALF, height: 8, rx: 1.5, fill }, g);
+    const [dx, dy, anc] = LBL[id];
+    const n = S('text', { x: x + dx, y: y + dy, 'text-anchor': anc, class: 'dg-num' }, g); n.textContent = id;
+    const vt = S('text', { x: x + dx, y: y + dy + 13, 'text-anchor': anc, class: 'dg-v' }, g);
+    vt.textContent = br ? `${br.Vm.toFixed(3)} ∠${fx(br.Va, 1)}°` : '–';
+    const ty = res && res.buses ? res.buses[i].type : bus.type;
+    let tip = t('tipBus', id, typeName(ty));
+    if (br) {
+      tip += `<br><span class="m">|V| ${br.Vm.toFixed(4)} pu · θ ${fx(br.Va, 2)}°</span>`;
+      if (br.Pd || br.Qd) tip += `<br>${t('tipLoad')} <span class="m">${fx(br.Pd, 1)} MW, ${fx(br.Qd, 1)} MVAr</span>`;
+      if (br.gen) tip += `<br>${br.gen.kind === 'sc' ? t('tipSC') : t('tipGen')} <span class="m">${fx(br.Pg, 1)} MW, ${fx(br.Qg, 1)} MVAr</span>`;
+      if (bus.Bs) tip += `<br>${t('tipShunt')}`;
+    }
+    if (interactive) tip += '<br>' + t('clickBus');
+    const hb = S('rect', { x: x - HALF - 6, y: y - 14, width: 2 * HALF + 12, height: 28, class: 'hitbox', 'data-tip': tip }, g);
+    if (interactive) {
+      hb.setAttribute('tabindex', '0'); hb.setAttribute('role', 'button'); hb.setAttribute('aria-label', 'Bus ' + id);
+      const act = () => { SEL = SEL === id ? null : id; renderLab(); };
+      hb.addEventListener('click', act);
+      hb.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } });
+    }
+  });
+}
+
+function renderLegends() {
+  const html = `<span class="vbar"><b>0.94</b><i></i><b>1.06</b></span><span>${t('lgV')}</span>
+    <span><svg width="34" height="10" aria-hidden="true"><path d="M2 5H32" stroke="var(--wire)" stroke-width="4"/><path d="M2 5H32" stroke="var(--accent)" stroke-width="2" stroke-dasharray="2 6"/></svg>${t('lgFlow')}</span>
+    <span><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8" class="dg-sym"/><path d="M5 10c1.7-4 3.3-4 5 0s3.3 4 5 0" class="dg-stub"/></svg>${t('lgGen')}</span>
+    <span><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8" class="dg-sym"/><text x="10" y="14" text-anchor="middle" class="dg-symt">C</text></svg>${t('lgSC')}</span>
+    <span><svg width="12" height="20" aria-hidden="true"><path d="M6 2V12" class="dg-stub"/><path d="M1.5 11H10.5L6 18Z" class="dg-load"/></svg>${t('lgLoad')}</span>
+    <span><svg width="24" height="16" aria-hidden="true"><circle cx="9" cy="8" r="6" class="dg-sym"/><circle cx="15" cy="8" r="6" class="dg-sym" fill-opacity=".6"/></svg>${t('lgX')}</span>`;
+  document.querySelectorAll('[data-legend]').forEach(el => { el.innerHTML = html; });
+}
+
+/* ---------- Y-bus ---------- */
+function renderYbus() {
+  const svg = $('#ybusSvg'); svg.textContent = '';
+  const y = PF.ybus(CASE), n = y.n, cell = 26, x0 = 34, y0 = 30;
+  let maxA = 0, nz = 0;
+  const val = (i, k) => YMODE === 'g' ? y.G[i][k] : YMODE === 'b' ? y.B[i][k] : Math.hypot(y.G[i][k], y.B[i][k]);
+  for (let i = 0; i < n; i++) for (let k = 0; k < n; k++) { const v = Math.abs(val(i, k)); maxA = Math.max(maxA, v); if (y.G[i][k] || y.B[i][k]) nz++; }
+  for (let i = 0; i < n; i++) {
+    S('text', { x: x0 - 8, y: y0 + i * cell + cell / 2 + 4, 'text-anchor': 'end', class: 'ax' }, svg).textContent = i + 1;
+    S('text', { x: x0 + i * cell + cell / 2, y: y0 - 9, 'text-anchor': 'middle', class: 'ax' }, svg).textContent = i + 1;
+  }
+  for (let i = 0; i < n; i++) for (let k = 0; k < n; k++) {
+    const g = y.G[i][k], b = y.B[i][k], px = x0 + k * cell, py = y0 + i * cell;
+    if (!g && !b) { S('rect', { x: px + 1, y: py + 1, width: cell - 2, height: cell - 2, rx: 2, fill: 'none', stroke: 'var(--grid)' }, svg); continue; }
+    const v = val(i, k), u = Math.log10(1 + Math.abs(v)) / Math.log10(1 + maxA);
+    const fill = YMODE === 'abs' ? seqColor(0.12 + 0.88 * u) : (Math.abs(v) < 1e-12 ? `rgb(${C['v-mid'].join(',')})` : divColor(Math.sign(v), 0.15 + 0.85 * u));
+    const tip = t('yTip', i + 1, k + 1, fx(g, 3), (b < 0 ? '− j' : '+ j') + Math.abs(b).toFixed(3));
+    S('rect', { x: px + 1, y: py + 1, width: cell - 2, height: cell - 2, rx: 2, fill, 'data-tip': tip }, svg);
+  }
+  $('#ynnz').textContent = t('yNnz', nz);
+  const key = $('#ykey');
+  if (YMODE === 'abs') key.innerHTML = `<span><i class="sq" style="background:${seqColor(0.15)}"></i><i class="sq" style="background:${seqColor(0.55)}"></i><i class="sq" style="background:${seqColor(1)}"></i>${t('yAbs')}</span>`;
+  else key.innerHTML = `<span><i class="sq" style="background:${divColor(-1, 0.9)}"></i>${t('yNeg')}</span><span><i class="sq" style="background:${divColor(1, 0.9)}"></i>${t('yPos')}</span>`;
+}
+
+function renderBranchData() {
+  const L = LANG === 'zh';
+  let h = `<thead><tr><th>${t('branch')}</th><th class="r">r</th><th class="r">x</th><th class="r">b</th><th class="r">${L ? '变比 t' : 'tap t'}</th></tr></thead><tbody>`;
+  CASE.branches.forEach(b => { h += `<tr><td>${b.f}–${b.t}</td><td class="r">${b.r.toFixed(5)}</td><td class="r">${b.x.toFixed(5)}</td><td class="r">${b.b.toFixed(4)}</td><td class="r">${b.xfmr ? b.tap.toFixed(3) : '–'}</td></tr>`; });
+  $('#branchData').innerHTML = h + '</tbody>';
+}
+
+/* ---------- log-scale helpers ---------- */
+const LOGMIN = -14, LOGMAX = 1;
+const ly = (v, top, h) => { const e = clamp(Math.log10(Math.max(Math.abs(v), 1e-14)), LOGMIN, LOGMAX); return top + h * (LOGMAX - e) / (LOGMAX - LOGMIN); };
+function logAxis(svg, L, R, top, h) {
+  for (const e of [0, -4, -8, -12]) {
+    const yy = ly(Math.pow(10, e), top, h);
+    S('line', { x1: L, x2: R, y1: yy, y2: yy, class: 'gl' }, svg);
+    S('text', { x: L - 6, y: yy + 4, 'text-anchor': 'end', class: 'ax' }, svg).textContent = pow10(e);
+  }
+  const yt = ly(1e-8, top, h);
+  S('line', { x1: L, x2: R, y1: yt, y2: yt, class: 'tol' }, svg);
+}
+
+/* ---------- iteration explorer ---------- */
+function eqLabels(ix) {
+  return ix.pvpq.map(i => ['P', i + 1]).concat(ix.pq.map(i => ['Q', i + 1]));
+}
+function renderExplorer() {
+  const r = NRRES, btns = $('#iterBtns');
+  btns.textContent = '';
+  if (!r || r.status === 'islanded' || !r.hist || !r.hist.length) {
+    $('#exMax').textContent = '–'; $('#exNote').textContent = r && r.status === 'islanded' ? t('islMsg', r.islanded.join(', ')) : '';
+    $('#misSvg').textContent = ''; $('#jacSvg').textContent = ''; $('#stateTbl').textContent = ''; $('#jkey').textContent = '';
+    return;
+  }
+  const H = r.hist, N = H.length - 1;
+  EXK = clamp(EXK, 0, N);
+  H.forEach((_, k) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = 'k=' + k; b.setAttribute('aria-pressed', k === EXK);
+    b.addEventListener('click', () => { EXK = k; renderExplorer(); });
+    btns.appendChild(b);
+  });
+  const rec = H[EXK];
+  $('#exMax').textContent = sci(rec.norm) + ' pu';
+  $('#exNote').textContent = r.status === 'ok' ? (rec.norm < 1e-8 ? t('explConv') : t('explNote', EXK, N)) : t('explFail');
+
+  // mismatch bars
+  const svg = $('#misSvg'); svg.textContent = '';
+  const L = 50, R = 632, top = 10, h = 170, labs = eqLabels(r.ix), m = labs.length, bw = (R - L) / m;
+  logAxis(svg, L, R, top, h);
+  S('line', { x1: L, x2: R, y1: top + h, y2: top + h, class: 'base' }, svg);
+  labs.forEach(([q, b], j) => {
+    const v = rec.F[j], yy = ly(v, top, h), x = L + j * bw + bw * 0.18, w = bw * 0.64;
+    S('rect', { x, y: yy, width: w, height: Math.max(0, top + h - yy), rx: 2, fill: q === 'P' ? 'var(--s1)' : 'var(--s2)' }, svg);
+    S('rect', { x: L + j * bw, y: top, width: bw, height: h, fill: 'transparent', 'data-tip': t('misTip', q, b, sci(v)) }, svg);
+    S('text', { x: L + j * bw + bw / 2, y: top + h + 14, 'text-anchor': 'middle', class: 'ax' }, svg).textContent = b;
+  });
+  const np = r.ix.pvpq.length;
+  S('text', { x: L + np * bw / 2, y: top + h + 32, 'text-anchor': 'middle', class: 'axl' }, svg).textContent = 'ΔP';
+  S('text', { x: L + np * bw + (m - np) * bw / 2, y: top + h + 32, 'text-anchor': 'middle', class: 'axl' }, svg).textContent = 'ΔQ';
+  S('line', { x1: L + np * bw, x2: L + np * bw, y1: top + h + 4, y2: top + h + 36, class: 'base' }, svg);
+
+  // state table
+  const prev = H[Math.max(0, EXK - 1)];
+  const rows = CASE.buses.map((b, i) => {
+    const dv = EXK > 0 && Math.abs(rec.V[i] - prev.V[i]) > 5e-5, da = EXK > 0 && Math.abs(rec.th[i] - prev.th[i]) * 180 / Math.PI > 5e-3;
+    return `<tr><td>${b.id}</td><td class="${dv ? 'chg' : ''}">${rec.V[i].toFixed(4)}</td><td class="${da ? 'chg' : ''}">${fx(rec.th[i] * 180 / Math.PI, 3)}</td></tr>`;
+  });
+  const head = `<thead><tr><th>${t('bus')}</th><th class="r">${t('stV')}</th><th class="r">${t('stA')}</th></tr></thead>`;
+  $('#stateTbl').innerHTML = `<tbody><tr><td style="padding:0;border:0"><table class="statetbl">${head}<tbody>${rows.slice(0, 7).join('')}</tbody></table></td><td style="padding:0 0 0 14px;border:0"><table class="statetbl">${head}<tbody>${rows.slice(7).join('')}</tbody></table></td></tr></tbody>`;
+
+  // jacobian
+  const jsvg = $('#jacSvg'); jsvg.textContent = '';
+  const J = rec.J;
+  if (!J) return;
+  const cell = 16, ox = 34, oy = 28, M = J.length;
+  let mx = 0;
+  J.forEach(row => row.forEach(v => { mx = Math.max(mx, Math.abs(v)); }));
+  const lmx = Math.log10(1 + mx);
+  for (let a = 0; a < M; a++) for (let c = 0; c < M; c++) {
+    const v = J[a][c];
+    if (v === 0) continue;
+    const u = Math.log10(1 + Math.abs(v)) / lmx;
+    S('rect', { x: ox + c * cell + 0.5, y: oy + a * cell + 0.5, width: cell - 1, height: cell - 1, rx: 1.5, fill: seqColor(0.15 + 0.85 * u),
+      'data-tip': t('jTip', `${labs[a][0]}<sub>${labs[a][1]}</sub>`, `${c < np ? 'θ' : '|V|'}<sub>${labs[c][1]}</sub>`, fx(v, 4)) }, jsvg);
+  }
+  const edge = ox + M * cell;
+  S('rect', { x: ox, y: oy, width: M * cell, height: M * cell, fill: 'none', stroke: 'var(--rule)' }, jsvg);
+  S('line', { x1: ox + np * cell, x2: ox + np * cell, y1: oy - 4, y2: oy + M * cell + 4, stroke: 'var(--ink-2)', 'stroke-width': 1 }, jsvg);
+  S('line', { x1: ox - 4, x2: edge + 4, y1: oy + np * cell, y2: oy + np * cell, stroke: 'var(--ink-2)', 'stroke-width': 1 }, jsvg);
+  const blk = (tx, x, y) => { S('text', { x, y, 'text-anchor': 'middle', class: 'lab' }, jsvg).textContent = tx; };
+  blk('∂P/∂θ', ox + np * cell / 2, oy - 10); blk('∂P/∂|V|', ox + np * cell + (M - np) * cell / 2, oy - 10);
+  S('text', { x: ox - 10, y: oy + np * cell / 2, 'text-anchor': 'middle', class: 'lab', transform: `rotate(-90 ${ox - 10} ${oy + np * cell / 2})` }, jsvg).textContent = 'H · N  (ΔP)';
+  S('text', { x: ox - 10, y: oy + np * cell + (M - np) * cell / 2, 'text-anchor': 'middle', class: 'lab', transform: `rotate(-90 ${ox - 10} ${oy + np * cell + (M - np) * cell / 2})` }, jsvg).textContent = 'M · L  (ΔQ)';
+  $('#jkey').innerHTML = `<span><i class="sq" style="background:${seqColor(0.15)}"></i><i class="sq" style="background:${seqColor(0.55)}"></i><i class="sq" style="background:${seqColor(1)}"></i>${t('jKey')}</span>`;
+}
+
+/* ---------- method comparison ---------- */
+const MCOL = { nr: 'var(--s1)', fdlf: 'var(--s2)', gs: 'var(--s3)' };
+function renderCompare() {
+  const svg = $('#cmpSvg'); svg.textContent = '';
+  const keys = ['nr', 'fdlf', 'gs'];
+  $('#cmpKey').innerHTML = keys.map(k => `<span><i style="background:${MCOL[k]}"></i>${t(k)}</span>`).join('') + `<span><i style="background:var(--ink-2);height:1px"></i>ε = 10<sup>−8</sup></span>`;
+  const L = 50, R = 560, top = 10, h = 200;
+  const lens = keys.map(k => CMP[k].hist ? CMP[k].hist.length - 1 : 0);
+  const xMax = Math.max(12, Math.min(60, 2 * Math.max(lens[0], lens[1]) + 4));
+  const xs = k => L + (R - L) * k / xMax;
+  logAxis(svg, L, R, top, h);
+  S('line', { x1: L, x2: R, y1: top + h, y2: top + h, class: 'base' }, svg);
+  const step = xMax <= 12 ? 1 : xMax <= 30 ? 5 : 10;
+  for (let k = 0; k <= xMax; k += step) S('text', { x: xs(k), y: top + h + 16, 'text-anchor': 'middle', class: 'ax' }, svg).textContent = k;
+  S('text', { x: (L + R) / 2, y: top + h + 34, 'text-anchor': 'middle', class: 'axl' }, svg).textContent = t('axIter');
+  const ends = [];
+  keys.forEach(k => {
+    const r = CMP[k];
+    if (!r.hist) return;
+    const H = r.hist.slice(0, xMax + 1);
+    S('path', { d: 'M' + H.map((q, i) => `${xs(i).toFixed(1)} ${ly(q.norm, top, h).toFixed(1)}`).join('L'), fill: 'none', stroke: MCOL[k], 'stroke-width': 2, 'stroke-linejoin': 'round' }, svg);
+    if (H.length <= 25) H.forEach((q, i) => S('circle', { cx: xs(i), cy: ly(q.norm, top, h), r: 3.5, fill: MCOL[k], stroke: 'var(--panel)', 'stroke-width': 1.5 }, svg));
+    const last = H[H.length - 1], clipped = r.hist.length - 1 > xMax;
+    ends.push({ k, x: xs(H.length - 1), y: ly(last.norm, top, h), clipped, n: r.hist.length - 1, ok: r.status === 'ok' });
+  });
+  // direct labels, nudged apart
+  ends.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 14) ends[i].y = ends[i - 1].y + 14;
+  ends.forEach(e => {
+    const lx = e.clipped ? R + 6 : e.x + 8;
+    const tx = S('text', { x: lx, y: e.y + 4, class: 'lab' }, svg);
+    tx.textContent = e.clipped ? `${t(e.k).split('–')[0].split(' ')[0]} → ${e.n}` : `${t(e.k).split('–')[0].split(' ')[0]} ${e.ok ? e.n : '×'}`;
+  });
+  // crosshair
+  const cross = S('line', { x1: 0, x2: 0, y1: top, y2: top + h, stroke: 'var(--ink-2)', 'stroke-width': 1, visibility: 'hidden' }, svg);
+  const ov = S('rect', { x: L, y: top, width: R - L, height: h, fill: 'transparent' }, svg);
+  const show = ev => {
+    const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const k = clamp(Math.round((p.x - L) / (R - L) * xMax), 0, xMax);
+    cross.setAttribute('x1', xs(k)); cross.setAttribute('x2', xs(k)); cross.setAttribute('visibility', 'visible');
+    let html = t('cmpTip', k);
+    keys.forEach(m => { const H = CMP[m].hist; if (H && H[k]) html += `<br>${t(m)}: <span class="m">${sci(H[k].norm)}</span>`; });
+    showTip(html, ev.clientX, ev.clientY);
+  };
+  ov.addEventListener('pointermove', show);
+  ov.addEventListener('pointerdown', show);
+  ov.addEventListener('pointerleave', () => { cross.setAttribute('visibility', 'hidden'); hideTip(); });
+
+  $('#cmpTbl').innerHTML = `<thead><tr><th>${t('cmpMethod')}</th><th class="r">${t('cmpIt')}</th><th>${t('cmpCost')}</th></tr></thead><tbody>` +
+    keys.map(k => { const r = CMP[k]; const it = r.status === 'ok' ? r.total : r.status === 'islanded' ? '–' : t('diverged');
+      return `<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${MCOL[k]};margin-right:8px"></span>${t(k)}</td><td class="r mono">${it}</td><td class="small">${t(k === 'nr' ? 'costNR' : k === 'fdlf' ? 'costFD' : 'costGS')}</td></tr>`; }).join('') + '</tbody>';
+}
+
+/* ---------- lab ---------- */
+function renderLab() {
+  renderDiagram($('#labSvg'), RES, { interactive: true, showFlows: $('#showFlows').checked });
+  const head = $('#labHead');
+  let h = '';
+  if (RES.status === 'ok') {
+    const T2 = RES.totals;
+    h = `<span class="status ok"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.6 2.5L10 3" fill="none" stroke="currentColor" stroke-width="2"/></svg>${t('ok')} · ${t(METHOD)} · ${t('iters', RES.total)}</span>
+      <span class="stats"><span>${t('gen')} <b>${fx(T2.Pg, 1)} MW</b></span><span>${t('load')} <b>${fx(T2.Pd, 1)} MW</b></span><span>${t('loss')} <b>${fx(T2.Pl, 2)} MW</b></span><span>${t('vmin')} <b>${T2.vmin.Vm.toFixed(3)} pu</b> (${t('atBus', T2.vmin.id)})</span></span>`;
+    if (RES.limited.length) h += `<span class="msg">${t('qlimHit', RES.limited.map(l => t('atBus', l.bus) + ` (${l.q} MVAr)`).join(', '))}</span>`;
+  } else {
+    const msg = RES.status === 'islanded' ? t('islMsg', RES.islanded.join(', ')) : RES.singular ? t('singMsg') : t('failMsg');
+    h = `<span class="status bad"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="2"/></svg>${RES.status === 'islanded' ? t('isl') : t('fail')}</span><span class="msg bad">${msg}</span>`;
+  }
+  head.innerHTML = h;
+
+  // editor
+  const fields = $('#edFields');
+  if (!SEL) { $('#edTitle').textContent = LANG === 'zh' ? '节点' : 'Bus'; $('#edHint').textContent = t('noBus'); fields.hidden = true; }
+  else {
+    const b = CASE.buses[SEL - 1], g = CASE.gens.find(q => q.bus === SEL);
+    $('#edTitle').textContent = t('editing', SEL);
+    $('#edHint').textContent = b.type === 3 ? t('edSlack') : b.type === 2 ? t('edPV', g.kind) : t('edPQ');
+    fields.hidden = false;
+    $('#edPdL').hidden = b.type === 3; $('#edQdL').hidden = b.type === 3;
+    $('#edPgL').hidden = !(g && b.type === 2 && g.kind === 'gen');
+    $('#edVgL').hidden = !g;
+    const setv = (id, v) => { const el = $(id); if (document.activeElement !== el) el.value = v; };
+    setv('#edPd', b.Pd); setv('#edQd', b.Qd);
+    if (g) { setv('#edPg', g.Pg); setv('#edVg', g.Vg); }
+  }
+  const outs = CASE.branches.filter(b => !b.on).map(b => `${b.f}–${b.t}`);
+  $('#outList').textContent = outs.length ? t('outs', outs.join(', ')) : t('noOut');
+  $('#restoreAll').disabled = !outs.length;
+
+  // tables
+  const bt = $('#busTbl'), brt = $('#brTbl');
+  bt.innerHTML = `<thead><tr><th>${t('bus')}</th><th>${t('type')}</th><th class="r">${t('vm')}</th><th class="r">${t('va')}</th><th class="r">${t('pg')}</th><th class="r">${t('qg')}</th><th class="r">${t('pd')}</th><th class="r">${t('qd')}</th></tr></thead>`;
+  brt.innerHTML = `<thead><tr><th>${t('branch')}</th><th class="r">${t('pf')}</th><th class="r">${t('qf')}</th><th class="r">${t('pt')}</th><th class="r">${t('qt')}</th><th class="r">${t('pl')}</th></tr></thead>`;
+  if (RES.status !== 'ok') {
+    bt.innerHTML += `<tbody><tr><td colspan="8" class="msg">${t('noRes')}</td></tr></tbody>`;
+    brt.innerHTML += `<tbody><tr><td colspan="6" class="msg">${t('noRes')}</td></tr></tbody>`;
+    return;
+  }
+  bt.innerHTML += '<tbody>' + RES.buses.map(b => {
+    const flag = b.Vm < 0.94 - 1e-9 ? ' <span class="flag" title="low">▼</span>' : b.Vm > 1.06 + 1e-9 ? ' <span class="flag" title="high">▲</span>' : '';
+    const chip = b.type !== b.baseType ? `<span class="chip lim">PV→PQ</span>` : `<span class="chip ${b.type === 3 ? 'slack' : b.type === 2 ? 'pv' : ''}">${typeName(b.type)}</span>`;
+    return `<tr class="${SEL === b.id ? 'sel' : ''}"><td>${b.id}</td><td>${chip}</td><td class="r">${b.Vm.toFixed(3)}${flag}</td><td class="r">${fx(b.Va, 2)}</td><td class="r">${b.gen ? fx(b.Pg, 1) : ''}</td><td class="r">${b.gen ? fx(b.Qg, 1) : ''}</td><td class="r">${b.Pd || b.Qd ? fx(b.Pd, 1) : ''}</td><td class="r">${b.Pd || b.Qd ? fx(b.Qd, 1) : ''}</td></tr>`;
+  }).join('') + '</tbody>';
+  brt.innerHTML += '<tbody>' + CASE.branches.map((b, j) => {
+    const r = RES.branches[j];
+    if (!r.on) return `<tr class="off"><td>${b.f}–${b.t}</td><td colspan="5">${t('off')}</td></tr>`;
+    return `<tr><td>${b.f}–${b.t}${b.xfmr ? ' <span class="chip">T</span>' : ''}</td><td class="r">${fx(r.Pf, 1)}</td><td class="r">${fx(r.Qf, 1)}</td><td class="r">${fx(r.Pt, 1)}</td><td class="r">${fx(r.Qt, 1)}</td><td class="r">${fx(r.Pl, 2)}</td></tr>`;
+  }).join('') + '</tbody>';
+}
+
+function renderHero() {
+  renderDiagram($('#heroSvg'), BASERES, { interactive: false, showFlows: false });
+  if (BASERES.status === 'ok') {
+    $('#heroLoss').innerHTML = `${fx(BASERES.totals.Pl, 2)} MW<small>${esc(t('heroIter', BASERES.total))}</small>`;
+  }
+}
+
+/* ---------- exercises ---------- */
+const EX = [
+  { en: ['Bus 8 produces no real power, yet it is a PV bus. What is connected there, and what does the solver compute for it?',
+         'A synchronous condenser. Its <var>P</var> is fixed at zero and it holds <var>|V<sub>8</sub>|</var> = 1.090 pu, so the unknown the solver finds is its reactive output: about {Q8} MVAr in the base case. Check the bus table in the Lab.'],
+    zh: ['节点 8 不发有功，却是 PV 节点。它上面接的是什么？求解器为它算出的是什么量？',
+         '接的是同步调相机。它的 <var>P</var> 固定为零，维持 <var>|V<sub>8</sub>|</var> = 1.090 pu，所以求解器求出的是它的无功出力：基础算例中约 {Q8} MVAr。可在实验台的节点结果表中核对。'] },
+  { en: ['Add up the loads and the generation in the base case. Where do the extra megawatts go, and which machine supplies them?',
+         'Load is 259.0 MW and generation is {PG} MW. The {PL} MW difference is I²R loss in the branches. Bus 2 is fixed at 40 MW, so the slack generator at bus 1 supplies everything else: {P1} MW.'],
+    zh: ['把基础算例中的负荷与发电分别相加。多出来的兆瓦去了哪里？由哪台机组提供？',
+         '总负荷 259.0 MW，总发电 {PG} MW，相差的 {PL} MW 是支路上的 I²R 损耗。节点 2 出力固定为 40 MW，因此其余全部由节点 1 的平衡机提供：{P1} MW。'] },
+  { en: ['How many nonzero entries does Y<sub>bus</sub> have? How many after line 2–3 is removed?',
+         '54: 14 diagonal entries plus 2 × 20 off-diagonal entries. Removing 2–3 deletes <var>Y</var><sub>2,3</sub> and <var>Y</var><sub>3,2</sub>, leaving 52. The diagonal entries at buses 2 and 3 also change, because they no longer include that line’s admittance and charging.'],
+    zh: ['Y<sub>bus</sub> 有多少个非零元？断开线路 2–3 后还剩多少？',
+         '54 个：14 个对角元加 2 × 20 个非对角元。断开 2–3 后，<var>Y</var><sub>2,3</sub> 和 <var>Y</var><sub>3,2</sub> 变为零，剩 52 个。节点 2 和 3 的对角元也会变化，因为不再包含这条线路的导纳和充电电纳。'] },
+  { en: ['In the iteration explorer, read the largest mismatch at each iteration of the base case. How does its exponent change from one iteration to the next?',
+         'The sequence is {SEQ} pu. Once the guess is close, the exponent roughly doubles each step. That is quadratic convergence, and it is why Newton–Raphson needs so few iterations.'],
+    zh: ['在迭代过程面板中，读出基础算例每次迭代的最大不平衡量。它的指数每迭代一次怎样变化？',
+         '序列为 {SEQ} pu。一旦接近解，指数大约每步翻一倍，这就是二阶收敛，也是牛顿法迭代次数很少的原因。'] },
+  { en: ['In the Lab, take line 1–2 out of service. Where does its power go, and what happens to losses and to the angle at bus 2?',
+         'In the base case line 1–2 carries {P12} MW out of bus 1. With it open, all of the slack’s output must leave through line 1–5, which rises from {P15a} MW to {P15b} MW. Losses grow from {PLa} MW to {PLb} MW, and the angle at bus 2 falls from {A2a}° to {A2b}°: the power now reaches bus 2 by a longer, higher-impedance path.'],
+    zh: ['在实验台断开线路 1–2。它原来输送的功率转移到了哪里？网损和节点 2 的相角怎样变化？',
+         '基础算例中线路 1–2 从节点 1 送出 {P12} MW。断开后，平衡机的全部出力只能经线路 1–5 送出，该线路潮流从 {P15a} MW 增加到 {P15b} MW。网损从 {PLa} MW 增加到 {PLb} MW，节点 2 的相角从 {A2a}° 降到 {A2b}°：功率要经过更长、阻抗更大的路径才能到达节点 2。'] },
+  { en: ['Raise the load factor slowly with Newton–Raphson selected. Where does it stop converging, and what happens to the iteration count and the lowest voltage just before that point?',
+         'With Q limits off, Newton–Raphson converges up to a load factor of about {LMAX}× and fails beyond about {LFAIL}×. Near the limit the iteration count climbs (it is {ITMAX} at {LMAX}×) and the lowest voltage drops to {VMIN} pu at bus {VBUS}. The Jacobian is becoming singular: this is the nose of the PV curve, the static voltage stability limit.'],
+    zh: ['选择牛顿–拉夫逊法，慢慢增大负荷系数。到多大时不再收敛？接近这一点时，迭代次数和最低电压有什么变化？',
+         '不考虑无功限值时，牛顿法在负荷系数约 {LMAX}× 以内收敛，超过约 {LFAIL}× 就失败。接近极限时迭代次数增加（{LMAX}× 时为 {ITMAX} 次），最低电压降到 {VMIN} pu（节点 {VBUS}）。此时雅可比矩阵趋于奇异，对应 PV 曲线的“鼻尖”，即静态电压稳定极限。'] },
+  { en: ['Turn on Q-limit enforcement and raise the load factor from 1.00× in small steps. Which machine reaches its reactive limit first, and what happens to its voltage?',
+         '{QLIM} A PV bus at its limit has its <var>Q</var> fixed and becomes a PQ bus, so nothing holds its voltage any more and it sags below the setpoint. By 1.30×, {QN} machines are at their limits, and with limits enforced the case stops converging at a much lower load factor than without them.'],
+    zh: ['打开“考虑发电机无功限值”，从 1.00× 开始小步增大负荷系数。哪台电机最先达到无功限值？它的电压怎样变化？',
+         '{QLIM} PV 节点达到限值后 <var>Q</var> 被固定，节点转为 PQ 节点，电压不再被维持，降到设定值以下。到 1.30× 时已有 {QN} 台电机达到限值；考虑无功限值后，系统失去收敛时的负荷系数也比不考虑时低得多。'] },
+  { en: ['Branch 12–13 has <var>r</var> &gt; <var>x</var>, which breaks the fast decoupled assumption. Why does the method still reach the same answer?',
+         'Because the approximation is only in the correction step. The mismatches are always evaluated with the full nonlinear equations, so whatever path the iteration takes, it can only stop where the true mismatches are below ε. Poor approximations cost extra iterations ({FDIT} here versus {NRIT} for Newton–Raphson), and with many low x/r branches, as in distribution feeders, the method can stop converging altogether.'],
+    zh: ['支路 12–13 的 <var>r</var> &gt; <var>x</var>，不满足 P-Q 分解法的假设。为什么它仍能得到相同的结果？',
+         '因为近似只用在修正步骤中。不平衡量始终用完整的非线性方程计算，所以无论迭代走什么路径，只有真实不平衡量小于 ε 时才会停止。近似不好只会多迭代几次（这里 {FDIT} 次，牛顿法 {NRIT} 次）；如果像配电网那样有大量低 x/r 支路，方法可能完全不收敛。'] }
+];
+let EXV = {};
+function computeExerciseValues() {
+  const b = BASERES, c = PF.baseCase();
+  const v = {};
+  v.Q8 = fx(b.buses[7].Qg, 1); v.PG = fx(b.totals.Pg, 1); v.PL = fx(b.totals.Pl, 1); v.P1 = fx(b.buses[0].Pg, 1);
+  v.SEQ = b.hist.map(h => sci(h.norm)).join(' → ');
+  v.P12 = fx(b.branches[0].Pf, 1); v.P15a = fx(b.branches[1].Pf, 1); v.PLa = fx(b.totals.Pl, 2); v.A2a = fx(b.buses[1].Va, 2);
+  c.branches[0].on = false;
+  const o = PF.solve(c, 'nr');
+  if (o.status === 'ok') { v.P15b = fx(o.branches[1].Pf, 1); v.PLb = fx(o.totals.Pl, 2); v.A2b = fx(o.buses[1].Va, 2); }
+  c.branches[0].on = true;
+  let last = null, ls = 1;
+  for (let k = 300; k <= 600; k++) {
+    c.loadScale = k / 100;
+    const r = PF.solve(c, 'nr');
+    if (r.status !== 'ok') { v.LFAIL = c.loadScale.toFixed(2); break; }
+    last = r; ls = c.loadScale;
+  }
+  v.LMAX = ls.toFixed(2); v.ITMAX = last.total; v.VMIN = last.totals.vmin.Vm.toFixed(3); v.VBUS = last.totals.vmin.id;
+  c.qlim = true;
+  v.QLIM_DATA = null;
+  for (let k = 100; k <= 200; k++) {
+    c.loadScale = k / 100;
+    const q = PF.solve(c, 'nr');
+    if (q.status === 'ok' && q.limited.length) { v.QLIM_DATA = q; v.QLIM_S = c.loadScale; break; }
+  }
+  c.loadScale = 1.3;
+  const q13 = PF.solve(c, 'nr');
+  v.QLIM_N13 = q13.status === 'ok' ? q13.limited.length : null;
+  v.FDIT = PF.solve(PF.baseCase(), 'fdlf').total; v.NRIT = b.total;
+  EXV = v;
+}
+function qlimText() {
+  const q = EXV.QLIM_DATA;
+  if (!q) return LANG === 'zh' ? '在 2.00× 以内没有电机达到限值。' : 'No machine reaches a limit below 2.00×.';
+  const s = EXV.QLIM_S.toFixed(2);
+  return q.limited.map(l => {
+    const bu = q.buses[l.bus - 1], g = bu.gen;
+    return LANG === 'zh'
+      ? `负荷系数约 ${s}× 时，节点 ${l.bus}（${g.kind === 'sc' ? '调相机' : '发电机'}）最先越限：它需要 ${fx(l.qg, 1)} MVAr，超过${l.side === 'max' ? '上限' : '下限'} ${l.q} MVAr。限值生效后，其电压从设定值 ${g.Vg.toFixed(3)} pu 降到 ${bu.Vm.toFixed(3)} pu。`
+      : `At about ${s}×, bus ${l.bus} (${g.kind === 'sc' ? 'condenser' : 'generator'}) goes first: it would need ${fx(l.qg, 1)} MVAr, beyond its ${l.side === 'max' ? 'upper' : 'lower'} limit of ${l.q} MVAr. Once clamped, its voltage falls from the ${g.Vg.toFixed(3)} pu setpoint to ${bu.Vm.toFixed(3)} pu.`;
+  }).join(' ');
+}
+const EXTAG = { en: ['Bus types', 'Balance', 'Y-bus', 'Convergence', 'Contingency', 'Loadability', 'Q limits', 'Methods'], zh: ['节点类型', '功率平衡', '导纳矩阵', '收敛性', '预想事故', '输送极限', '无功限值', '算法'] };
+function renderExercises() {
+  const list = $('#exList');
+  const open = [...list.querySelectorAll('details')].map(d => d.open);
+  list.innerHTML = EX.map((e, i) => {
+    const [q, a] = e[LANG];
+    const ans = a.replace(/\{(\w+)\}/g, (_, k) => k === 'QLIM' ? qlimText() : k === 'QN' ? (EXV.QLIM_N13 ?? '–') : (EXV[k] ?? '–'));
+    return `<details id="ex${i + 1}"${open[i] ? ' open' : ''}><summary><span class="k">${String(i + 1).padStart(2, '0')}</span><span class="q">${q} <span class="small">· ${EXTAG[LANG][i]}</span></span></summary><div class="ans"><p>${ans}</p></div></details>`;
+  }).join('');
+}
+
+/* ---------- tooltip ---------- */
+const tipEl = $('#tip');
+function showTip(html, x, y) {
+  tipEl.innerHTML = html; tipEl.hidden = false;
+  const w = tipEl.offsetWidth, h = tipEl.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+  let lx = x + 14, ly2 = y + 14;
+  if (lx + w > vw - 8) lx = x - w - 14;
+  if (ly2 + h > vh - 8) ly2 = y - h - 14;
+  tipEl.style.left = Math.max(8, lx) + 'px'; tipEl.style.top = Math.max(8, ly2) + 'px';
+}
+function hideTip() { tipEl.hidden = true; }
+document.addEventListener('pointermove', e => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (el) showTip(el.getAttribute('data-tip'), e.clientX, e.clientY);
+  else if (!e.target.closest || !e.target.closest('#cmpSvg')) hideTip();
+});
+document.addEventListener('pointerdown', e => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (el && e.pointerType !== 'mouse') showTip(el.getAttribute('data-tip'), e.clientX, e.clientY);
+});
+document.addEventListener('focusin', e => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (el) { const r = el.getBoundingClientRect(); showTip(el.getAttribute('data-tip'), r.right, r.bottom); }
+});
+document.addEventListener('focusout', hideTip);
+window.addEventListener('scroll', hideTip, { passive: true });
+
+/* ---------- wiring ---------- */
+function recompute() {
+  RES = PF.solve(CASE, METHOD);
+  NRRES = METHOD === 'nr' ? RES : PF.solve(CASE, 'nr');
+  CMP = { nr: NRRES, fdlf: METHOD === 'fdlf' ? RES : PF.solve(CASE, 'fdlf'), gs: METHOD === 'gs' ? RES : PF.solve(CASE, 'gs') };
+  if (NRRES.hist) EXK = clamp(EXK, 0, NRRES.hist.length - 1);
+  renderLab(); renderExplorer(); renderCompare(); renderYbus();
+}
+function renderAll() {
+  readTokens();
+  renderLegends(); renderHero(); renderBranchData(); renderExercises();
+  renderLab(); renderExplorer(); renderCompare(); renderYbus();
+}
+function setLang(l) {
+  LANG = l === 'zh' ? 'zh' : 'en';
+  document.documentElement.setAttribute('data-lang', LANG);
+  document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : 'en';
+  $('#lang-en').setAttribute('aria-pressed', LANG === 'en');
+  $('#lang-zh').setAttribute('aria-pressed', LANG === 'zh');
+  try { localStorage.setItem('pf14-lang', LANG); } catch (e) { /* storage unavailable */ }
+  renderAll();
+}
+document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
+document.querySelectorAll('[data-ymode]').forEach(b => b.addEventListener('click', () => {
+  YMODE = b.dataset.ymode;
+  document.querySelectorAll('[data-ymode]').forEach(x => x.setAttribute('aria-pressed', x === b));
+  renderYbus();
+}));
+document.querySelectorAll('input[name="method"]').forEach(r => r.addEventListener('change', () => { METHOD = r.value; recompute(); }));
+$('#loadScale').addEventListener('input', e => {
+  CASE.loadScale = parseFloat(e.target.value);
+  $('#loadScaleOut').textContent = CASE.loadScale.toFixed(2) + '×';
+  recompute();
+});
+$('#qlim').addEventListener('change', e => { CASE.qlim = e.target.checked; recompute(); });
+$('#showFlows').addEventListener('change', renderLab);
+const bindNum = (id, fn) => $(id).addEventListener('input', e => { const v = parseFloat(e.target.value); if (isFinite(v) && SEL) { fn(v); recompute(); } });
+bindNum('#edPd', v => { CASE.buses[SEL - 1].Pd = v; });
+bindNum('#edQd', v => { CASE.buses[SEL - 1].Qd = v; });
+bindNum('#edPg', v => { CASE.gens.find(g => g.bus === SEL).Pg = v; });
+bindNum('#edVg', v => { if (v >= 0.8 && v <= 1.2) CASE.gens.find(g => g.bus === SEL).Vg = v; });
+$('#restoreAll').addEventListener('click', () => { CASE.branches.forEach(b => { b.on = true; }); recompute(); });
+$('#resetCase').addEventListener('click', () => {
+  CASE = PF.baseCase(); SEL = null;
+  $('#loadScale').value = 1; $('#loadScaleOut').textContent = '1.00×';
+  $('#qlim').checked = false; $('#m-nr').checked = true; METHOD = 'nr';
+  recompute();
+});
+const reTheme = () => { readTokens(); renderAll(); };
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', reTheme);
+new MutationObserver(reTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+// boot
+BASERES = PF.solve(PF.baseCase(), 'nr');
+computeExerciseValues();
+CASE.loadScale = parseFloat($('#loadScale').value) || 1;
+CASE.qlim = $('#qlim').checked;
+METHOD = (document.querySelector('input[name="method"]:checked') || { value: 'nr' }).value;
+$('#loadScaleOut').textContent = CASE.loadScale.toFixed(2) + '×';
+RES = PF.solve(CASE, METHOD);
+NRRES = METHOD === 'nr' ? RES : PF.solve(CASE, 'nr');
+CMP = { nr: NRRES, fdlf: PF.solve(CASE, 'fdlf'), gs: PF.solve(CASE, 'gs') };
+let saved = 'en';
+try { saved = localStorage.getItem('pf14-lang') || 'en'; } catch (e) { /* storage unavailable */ }
+setLang(saved);
+})();
+</script>
+</body>
+</html>
