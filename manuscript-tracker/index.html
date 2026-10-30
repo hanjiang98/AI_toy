@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Manuscript Tracker</title>
+  <meta name="claude:viewport-fit-sides" content="cover">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v15H6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M15 2v5h5M9 12h8M9 16h8M9 8h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <div>
+          <h1 data-i18n="appTitle">Manuscript Tracker</h1>
+          <p class="tagline" data-i18n="tagline"></p>
+        </div>
+      </div>
+      <div class="actions">
+        <div class="seg" role="group" aria-label="Language">
+          <button type="button" data-lang="en">EN</button>
+          <button type="button" data-lang="zh">中文</button>
+        </div>
+        <details class="menu">
+          <summary class="btn ghost" data-i18n="export"></summary>
+          <div class="menu-pop">
+            <button type="button" id="exportJson" data-i18n="exportJson"></button>
+            <button type="button" id="exportCsv" data-i18n="exportCsv"></button>
+          </div>
+        </details>
+        <label class="btn ghost" for="importFile"><span data-i18n="import"></span></label>
+        <input type="file" id="importFile" accept=".json,application/json" hidden>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card paste">
+      <div class="paste-head">
+        <h2 data-i18n="pasteTitle"></h2>
+        <button type="button" class="link" id="exampleBtn" data-i18n="tryExample"></button>
+      </div>
+      <p class="hint" data-i18n="pasteHint"></p>
+      <textarea id="emailInput" rows="7" spellcheck="false" data-i18n-ph="pastePlaceholder"></textarea>
+      <div class="row-end">
+        <button type="button" class="btn ghost" id="manualBtn" data-i18n="addManual"></button>
+        <button type="button" class="btn primary" id="parseBtn" data-i18n="parse"></button>
+      </div>
+
+      <form id="review" class="review" hidden>
+        <h3 data-i18n="reviewTitle"></h3>
+        <p class="match-note" id="matchNote" hidden data-i18n="matchFound"></p>
+        <div class="grid">
+          <label class="span2"><span data-i18n="fTitle"></span><textarea name="title" rows="2"></textarea></label>
+          <label><span data-i18n="fJournal"></span><input name="journal"></label>
+          <label><span data-i18n="fId"></span><input name="msId" class="mono"></label>
+          <label><span data-i18n="fEvent"></span><select name="type"></select></label>
+          <label><span data-i18n="fDate"></span><input name="date" type="date"></label>
+          <label><span data-i18n="fPublisher"></span>
+            <select name="publisher"><option>IEEE</option><option>Elsevier</option><option>Nature</option><option>Other</option></select>
+          </label>
+          <label class="due-field"><span data-i18n="fDue"></span><input name="due" type="date"></label>
+          <label class="span2"><span data-i18n="fAttach"></span><select name="attach"></select></label>
+        </div>
+        <label class="check" id="keepWrap"><input type="checkbox" name="keep" checked> <span data-i18n="keepEmail"></span></label>
+        <div class="row-end">
+          <button type="button" class="btn ghost" id="cancelReview" data-i18n="cancel"></button>
+          <button type="submit" class="btn primary" data-i18n="save"></button>
+        </div>
+      </form>
+    </section>
+
+    <section class="list-section">
+      <div class="toolbar">
+        <div class="chips" id="chips" role="tablist"></div>
+        <div class="tools">
+          <input type="search" id="search" data-i18n-ph="search">
+          <select id="sort">
+            <option value="updated" data-i18n="sortUpdated"></option>
+            <option value="submitted" data-i18n="sortSubmitted"></option>
+            <option value="due" data-i18n="sortDue"></option>
+            <option value="journal" data-i18n="sortJournal"></option>
+          </select>
+        </div>
+      </div>
+      <ul class="list" id="list"></ul>
+      <div class="empty" id="empty" hidden></div>
+      <p class="foot" id="storageNote"></p>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="i18n.js"></script>
+  <script src="parser.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

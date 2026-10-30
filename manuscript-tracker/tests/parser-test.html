@@ -1,0 +1,174 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Parser tests</title></head>
+<body>
+<pre id="out"></pre>
+<script src="../parser.js"></script>
+<script>
+const CASES = [
+  {
+    name: 'IEEE ScholarOne submission',
+    email: `IEEE Transactions on Sustainable Energy - Manuscript ID TSTE-04321-2026
+IEEE Transactions on Sustainable Energy<onbehalfof@manuscriptcentral.com>
+
+author@example.edu
+coauthor@example.com;
+A. Author;author@example.edu;b@example.com
+
+
+[External Email] This email originated outside of your organisation. Do not click links or open attachments unless you recognise the sender and know the content is safe.
+05-Sep-2026
+
+Dear Prof. Smith:
+
+Your manuscript entitled "Coordinated Voltage Control of Distribution Networks With High Photovoltaic Penetration" has been successfully submitted online and is presently being given full consideration for publication in the IEEE Transactions on Sustainable Energy.
+
+Your manuscript ID is TSTE-04321-2026.
+
+Please mention the above manuscript ID in all future correspondence or when calling the office for questions. If there are any changes in your street address or e-mail address, please log in to ScholarOne Manuscripts at https://mc.manuscriptcentral.com/tste-pes and edit your user information as appropriate.
+
+You can also view the status of your manuscript at any time by checking your Author Center after logging in to https://ieee.submission.researchexchange.com/journal/tste-pes.
+
+Thank you for submitting your manuscript to the IEEE Transactions on Sustainable Energy.
+
+Sincerely,
+IEEE Transactions on Sustainable Energy Editorial Office`,
+    expect: { type: 'submitted', date: '2026-09-05', msId: 'TSTE-04321-2026', baseId: 'TSTE-04321-2026', round: 0, publisher: 'IEEE',
+      journal: 'IEEE Transactions on Sustainable Energy', addressee: 'Prof. Smith', portal: 'https://mc.manuscriptcentral.com/tste-pes',
+      title: 'Coordinated Voltage Control of Distribution Networks With High Photovoltaic Penetration' },
+  },
+  {
+    name: 'IEEE major revision with deadline',
+    email: `IEEE Transactions on Power Systems - Decision on Manuscript ID TPWRS-00123-2026
+12-Oct-2026
+
+Dear Dr. Li:
+
+Manuscript ID TPWRS-00123-2026 entitled "A Reject-Option Classifier for Transient Stability Assessment" which you submitted to the IEEE Transactions on Power Systems, has been reviewed. The comments of the reviewers are included at the bottom of this letter.
+
+The reviewers have recommended a major revision. Therefore, I invite you to respond to the reviewer(s)' comments and revise your manuscript.
+
+Because we are trying to facilitate timely publication of manuscripts submitted to the IEEE Transactions on Power Systems, your revised manuscript should be uploaded by 11-Dec-2026.`,
+    expect: { type: 'major_revision', date: '2026-10-12', msId: 'TPWRS-00123-2026', due: '2026-12-11', journal: 'IEEE Transactions on Power Systems',
+      title: 'A Reject-Option Classifier for Transient Stability Assessment' },
+  },
+  {
+    name: 'IEEE revision submitted (.R1)',
+    email: `IEEE Transactions on Power Systems - Manuscript ID TPWRS-00123-2026.R1
+20-Nov-2026
+Dear Dr. Li:
+Your manuscript entitled "A Reject-Option Classifier for Transient Stability Assessment" has been successfully submitted online and is presently being given full consideration for publication in the IEEE Transactions on Power Systems.
+Your manuscript ID is TPWRS-00123-2026.R1.`,
+    expect: { type: 'revision_submitted', msId: 'TPWRS-00123-2026.R1', baseId: 'TPWRS-00123-2026', round: 1 },
+  },
+  {
+    name: 'IEEE reject and resubmit',
+    email: `IEEE Transactions on Smart Grid - Decision on Manuscript ID TSG-00987-2026
+02-Oct-2026
+Dear Mr. Wang:
+I regret to inform you that, based on the reviewers' comments, your manuscript "Peer-to-Peer Energy Trading Under Network Constraints" is not acceptable in its current form. The decision is Reject and Resubmit.`,
+    expect: { type: 'reject_resubmit', journal: 'IEEE Transactions on Smart Grid', msId: 'TSG-00987-2026' },
+  },
+  {
+    name: 'IEEE accept',
+    email: `IEEE Transactions on Sustainable Energy - Decision on Manuscript ID TSTE-04321-2026.R2
+15-Mar-2027
+Dear Prof. Smith:
+It is my pleasure to inform you that your manuscript entitled "Coordinated Voltage Control of Distribution Networks" has been accepted for publication in the IEEE Transactions on Sustainable Energy.`,
+    expect: { type: 'accepted', round: 2, baseId: 'TSTE-04321-2026', date: '2027-03-15' },
+  },
+  {
+    name: 'Elsevier EM submission',
+    email: `From: Applied Energy <em@editorialmanager.com>
+Date: Tue, Sep 16, 2026 at 3:12 PM
+Subject: Submission Confirmation for Hydrogen Storage Sizing in Island Microgrids
+
+Ms. Ref. No.: APEN-D-26-04567
+Title: Hydrogen Storage Sizing in Island Microgrids
+Applied Energy
+
+Dear Dr. Chen,
+
+Thank you for submitting your manuscript, "Hydrogen Storage Sizing in Island Microgrids", to Applied Energy.
+
+Your submission has been assigned the following manuscript number: APEN-D-26-04567.
+
+You can check the progress of your paper by logging into Editorial Manager at https://www.editorialmanager.com/apen/.`,
+    expect: { type: 'submitted', date: '2026-09-16', msId: 'APEN-D-26-04567', publisher: 'Elsevier', journal: 'Applied Energy',
+      title: 'Hydrogen Storage Sizing in Island Microgrids', portal: 'https://www.editorialmanager.com/apen/' },
+  },
+  {
+    name: 'Elsevier status change: under review',
+    email: `Applied Energy <em@editorialmanager.com>
+Ref.: Ms. No. APEN-D-26-04567
+Hydrogen Storage Sizing in Island Microgrids
+Dear Dr. Chen,
+We are pleased to inform you that your manuscript is now under review.`,
+    expect: { type: 'under_review', msId: 'APEN-D-26-04567', journal: 'Applied Energy' },
+  },
+  {
+    name: 'Elsevier minor revision, within N days',
+    email: `Ref: APEN-D-26-04567
+Title: Hydrogen Storage Sizing in Island Microgrids
+Journal: Applied Energy
+Date: 2026-11-02
+
+Dear Dr. Chen,
+Thank you for submitting your manuscript to Applied Energy. I have completed my evaluation of your manuscript. The reviewers recommend reconsideration of your manuscript following minor revision. I invite you to resubmit your manuscript after addressing the comments below. Please resubmit your revised manuscript within 30 days.`,
+    expect: { type: 'minor_revision', date: '2026-11-02', due: '2026-12-02', msId: 'APEN-D-26-04567', title: 'Hydrogen Storage Sizing in Island Microgrids' },
+  },
+  {
+    name: 'Elsevier revision submitted (R1)',
+    email: `Applied Energy <em@editorialmanager.com>
+Dear Dr. Chen,
+Thank you for submitting your revised manuscript, "Hydrogen Storage Sizing in Island Microgrids", to Applied Energy. Your manuscript number is APEN-D-26-04567R1.`,
+    expect: { type: 'revision_submitted', msId: 'APEN-D-26-04567R1', baseId: 'APEN-D-26-04567', round: 1 },
+  },
+  {
+    name: 'Nature submission',
+    email: `Nature Energy <energy@nature.com>
+Subject: Nature Energy manuscript NENERGY-26-01234 submitted
+Sep 20, 2026
+Dear Dr. Lee,
+Thank you for submitting your manuscript entitled "Grid-Forming Inverters at Scale" to Nature Energy. Your manuscript number is NENERGY-26-01234. You can track progress at https://mts-nenergy.nature.com/.`,
+    expect: { type: 'submitted', msId: 'NENERGY-26-01234', publisher: 'Nature', journal: 'Nature Energy', date: '2026-09-20', title: 'Grid-Forming Inverters at Scale' },
+  },
+  {
+    name: 'Nature desk reject with transfer offer',
+    email: `Nature Energy <energy@nature.com>
+Subject: Decision on Nature Energy manuscript NENERGY-26-01234
+Dear Dr. Lee,
+Thank you for your submission "Grid-Forming Inverters at Scale". We regret that we are unable to offer to publish it in Nature Energy. You can transfer your manuscript to Nature Communications using the link below.`,
+    expect: { type: 'rejected', msId: 'NENERGY-26-01234', journal: 'Nature Energy' },
+  },
+  {
+    name: 'Nature Communications revision suffix A',
+    email: `Nature Communications <ncomms@nature.com>
+Dear Dr. Lee,
+Thank you for submitting your revised manuscript "Grid-Forming Inverters at Scale" to Nature Communications. Your manuscript ID is NCOMMS-26-56789A.`,
+    expect: { type: 'revision_submitted', msId: 'NCOMMS-26-56789A', baseId: 'NCOMMS-26-56789', round: 1, journal: 'Nature Communications' },
+  },
+  {
+    name: 'Title words do not leak into decision',
+    email: `IEEE Transactions on Power Systems - Manuscript ID TPWRS-00555-2026
+01-Sep-2026
+Dear Dr. Li:
+Your manuscript entitled "Accepted Wisdom Rejected: Revisiting Major Revision Policies in Unit Commitment" has been successfully submitted online.`,
+    expect: { type: 'submitted' },
+  },
+];
+
+const out = [];
+let fails = 0;
+for (const c of CASES) {
+  const got = MSParser.parseEmail(c.email, '2026-10-30');
+  const bad = Object.entries(c.expect).filter(([k, v]) => got[k] !== v);
+  if (bad.length) fails++;
+  out.push((bad.length ? 'FAIL ' : 'ok   ') + c.name);
+  bad.forEach(([k, v]) => out.push(`       ${k}: expected ${JSON.stringify(v)}, got ${JSON.stringify(got[k])}`));
+}
+out.push('', `${CASES.length - fails}/${CASES.length} passed`);
+document.getElementById('out').textContent = out.join('\n');
+</script>
+</body>
+</html>
