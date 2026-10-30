@@ -2,6 +2,8 @@
   'use strict';
 
   const STORE = 'mstracker.records.v1';
+  const DELETED = 'mstracker.deleted.v1';
+  const GITHUB = 'mstracker.github.v1';
   const LANG = 'mstracker.lang';
   const { parseEmail, splitId, REVISION_TYPES } = window.MSParser;
 
@@ -53,6 +55,8 @@ IEEE Transactions on Sustainable Energy Editorial Office`;
 
   let lang = lsGet(LANG) === 'zh' ? 'zh' : 'en';
   let records = loadLocal();
+  let deleted = {}; // id -> deletion time, so GitHub sync can propagate deletions
+  try { deleted = JSON.parse(lsGet(DELETED) || '{}'); } catch { deleted = {}; }
   let filter = 'all', query = '', sortBy = 'updated', openId = null, pending = null;
   const openRaw = new Set();
 
@@ -94,7 +98,8 @@ IEEE Transactions on Sustainable Energy Editorial Office`;
    *  - 'account': the viewer's private db subtree data/users/<id>/ (signed-in viewers who may write);
    *    nobody else on the artifact, the owner included, can read it.
    *  - 'browser': localStorage in this browser, for everyone else (signed out, outside visitors,
-   *    or the page opened as a plain file). */
+   *    GitHub Pages, or the page opened as a plain file). Optionally synced to the person's own
+   *    private GitHub repository (see the GitHub sync section below). */
 
   function loadLocal() {
     try { return JSON.parse(lsGet(STORE) || '[]'); } catch { return []; }
@@ -107,7 +112,7 @@ IEEE Transactions on Sustainable Energy Editorial Office`;
     queue: new Map(),
 
     saveLocal() {
-      if (!lsSet(STORE, JSON.stringify(records))) toast(t('saveFailed'));
+      if (!lsSet(STORE, JSON.stringify(records)) || !lsSet(DELETED, JSON.stringify(deleted))) toast(t('saveFailed'));
     },
 
     // One write at a time per document, as the db contract asks.
@@ -119,8 +124,21 @@ IEEE Transactions on Sustainable Energy Editorial Office`;
       return next;
     },
 
-    put(r) { return this.mode === 'account' ? this.write(r.id, ref => ref.set(clone(r))) : Promise.resolve(this.saveLocal()); },
-    remove(r) { return this.mode === 'account' ? this.write(r.id, ref => ref.delete()) : Promise.resolve(this.saveLocal()); },
+    put(r) {
+      r.modified = Date.now();
+      if (this.mode === 'account') return this.write(r.id, ref => ref.set(clone(r)));
+      this.saveLocal();
+      scheduleSync();
+      return Promise.resolve();
+    },
+
+    remove(r) {
+      if (this.mode === 'account') return this.write(r.id, ref => ref.delete());
+      deleted[r.id] = Date.now();
+      this.saveLocal();
+      scheduleSync();
+      return Promise.resolve();
+    },
 
     fail(e) {
       const code = e && e.code;
@@ -138,6 +156,7 @@ IEEE Transactions on Sustainable Energy Editorial Office`;
       this.unsub = null;
       this.saveLocal();
       storageNote();
+      syncButton();
     },
   };
 
@@ -149,6 +168,7 @@ IEEE Transactions on Sustainable Energy Editorial Office`;
     store.col = db.collection('data/users/' + id);
     store.mode = 'account';
     storageNote();
+    syncButton();
     let migrated = false;
     store.unsub = store.col.onSnapshot(snap => {
       const remote = snap.docs.map(d => clone(d.data()));
@@ -172,7 +192,9 @@ IEEE Transactions on Sustainable Energy Editorial Office`;
   }
 
   function storageNote() {
-    $('#storageNote').textContent = t(store.mode === 'account' ? 'storageAccount' : 'storageBrowser');
+    const gh = ghConfig();
+    $('#storageNote').textContent = store.mode === 'account' ? t('storageAccount')
+      : gh ? t('storageGitHub', { repo: gh.repo }) : t('storageBrowser');
   }
 
   /* ---------- records ---------- */
@@ -217,6 +239,8 @@ IEEE Transactions on Sustainable Energy Editorial Office`;
     typeSel.innerHTML = typeOptions(typeSel.value);
     if (!$('#review').hidden) fillAttach($('#review select[name=attach]').value);
     storageNote();
+    syncButton();
+    if (dlg.open) renderSync();
     render();
   }
 
@@ -344,7 +368,7 @@ IEEE Transactions on Sustainable Energy Editorial Office`;
     return `<li class="item${openId === r.id ? ' open' : ''}" data-id="${r.id}">
       <button type="button" class="item-head" aria-expanded="${openId === r.id}">
         <span class="badge g-${g}">${esc(t('status.' + r.status))}</span>
-        <span style="min-width:0"><span class="item-title">${esc(r.title) || '<i>Untitled</i>'}</span><span class="item-meta">${meta}</span></span>
+        <span class="item-main"><span class="item-title">${esc(r.title) || '<i>Untitled</i>'}</span><span class="item-meta">${meta}</span></span>
         <span class="item-side">${side}</span>
       </button>
       ${openId === r.id ? detailHTML(r) : ''}
@@ -450,6 +474,140 @@ IEEE Transactions on Sustainable Energy Editorial Office`;
     }).catch(() => toast(t('importFail')));
   }
 
+  /* ---------- GitHub sync ----------
+   * Browser mode only, and not inside a claude.ai artifact (its sandbox blocks api.github.com).
+   * The token is kept in localStorage ("remember on this device") or sessionStorage. */
+
+  const dlg = $('#syncDialog');
+  let sync = { state: 'off', at: 0, error: null };
+  let syncTimer;
+
+  function ssGet(k) { try { return sessionStorage.getItem(k); } catch { return null; } }
+  function ssSet(k, v) { try { sessionStorage.setItem(k, v); return true; } catch { return false; } }
+  function ssDel(k) { try { sessionStorage.removeItem(k); } catch { /* ignore */ } }
+
+  function ghConfig() {
+    if (store.mode !== 'browser' || window.claude) return null;
+    try { return JSON.parse(lsGet(GITHUB) || ssGet(GITHUB) || 'null'); } catch { return null; }
+  }
+
+  const syncer = GitHubSync.createSyncer({
+    config: ghConfig,
+    getLocal: () => ({ records, deleted }),
+    setLocal(merged) {
+      records = merged.records;
+      deleted = merged.deleted;
+      records.forEach(recompute);
+      store.saveLocal();
+      render();
+    },
+    onStatus(state, info) {
+      sync = { state, at: state === 'ok' ? info.at : sync.at, error: state === 'error' ? info : null };
+      syncButton();
+      storageNote();
+      if (dlg.open) renderSync();
+    },
+  });
+
+  function scheduleSync() {
+    if (!ghConfig()) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(syncer.run, 1500);
+  }
+
+  function syncButton() {
+    const btn = $('#syncBtn');
+    btn.hidden = store.mode !== 'browser' || !!window.claude;
+    btn.querySelector('.sync-dot').dataset.state = ghConfig() ? sync.state : 'off';
+  }
+
+  function syncErrorText(e) {
+    const s = e && e.status;
+    if (s === 0) return t('ghOffline');
+    if (s === 401) return t('ghBadToken');
+    if (s === 403 || s === 404) return t('ghNoWrite', { repo: (ghConfig() || {}).repo });
+    if (s === 409 || s === 422) return t('ghConflict');
+    return t('ghOther', { status: s || '?' });
+  }
+
+  function connectErrorText(e) {
+    if (e.message === 'repo_not_found') return t('ghRepoNotFound');
+    if (e.message === 'repo_public') return t('ghRepoPublic');
+    if (e.message === 'need_owner') return t('ghNeedOwner');
+    return syncErrorText(e);
+  }
+
+  function renderSync() {
+    const cfg = ghConfig();
+    const body = $('#syncBody');
+    if (!cfg) {
+      const repoUrl = 'https://github.com/new?name=manuscript-tracker-data&visibility=private&description=' + encodeURIComponent('Data for Manuscript Tracker');
+      const tokenUrl = 'https://github.com/settings/personal-access-tokens/new?name=' + encodeURIComponent('Manuscript Tracker') +
+        '&description=' + encodeURIComponent('Sync for Manuscript Tracker') + '&expires_in=365&contents=write';
+      body.innerHTML = `<p>${esc(t('ghIntro'))}</p>
+        <ol class="steps">
+          <li><b>${esc(t('ghStep1'))}</b> <a href="${repoUrl}" target="_blank" rel="noopener noreferrer">${esc(t('ghStep1Link'))} ↗</a><small>${esc(t('ghStep1Hint'))}</small></li>
+          <li><b>${esc(t('ghStep2'))}</b> <a href="${tokenUrl}" target="_blank" rel="noopener noreferrer">${esc(t('ghStep2Link'))} ↗</a><small>${esc(t('ghStep2Hint'))}</small></li>
+          <li><b>${esc(t('ghStep3'))}</b></li>
+        </ol>
+        <form class="sync-form" id="ghForm">
+          <label>${esc(t('ghRepo'))}<input id="gh-repo" name="repo" value="manuscript-tracker-data" autocomplete="off" spellcheck="false" required></label>
+          <label>${esc(t('ghToken'))}<input id="gh-token" name="token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" required></label>
+          <label class="check"><input id="gh-remember" type="checkbox" name="remember" checked> ${esc(t('ghRemember'))}</label>
+          <p class="err-text" role="alert"></p>
+          <div class="row-end"><button class="btn primary">${esc(t('ghConnect'))}</button></div>
+        </form>
+        <p class="hint">${esc(t('ghSecurity'))}</p>`;
+      return;
+    }
+    const status = sync.state === 'syncing' ? t('ghSyncing')
+      : sync.state === 'error' ? syncErrorText(sync.error)
+        : sync.at ? t('ghLastSync', { time: new Date(sync.at).toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-GB', { hour: '2-digit', minute: '2-digit' }) })
+          : t('ghWaiting');
+    body.innerHTML = `<p>${esc(t('ghConnected'))} <a href="https://github.com/${esc(cfg.repo)}" target="_blank" rel="noopener noreferrer" class="mono">${esc(cfg.repo)} ↗</a></p>
+      <p class="sync-status" data-state="${sync.state}">${esc(status)}</p>
+      <div class="row-end">
+        <button type="button" class="btn danger" data-act="gh-disconnect">${esc(t('ghDisconnect'))}</button>
+        <button type="button" class="btn primary" data-act="gh-sync"${sync.state === 'syncing' ? ' disabled' : ''}>${esc(t('ghSyncNow'))}</button>
+      </div>
+      <p class="hint">${esc(t('ghDisconnectHint'))}</p>
+      <p class="hint">${esc(t('ghSecurity'))}</p>`;
+  }
+
+  dlg.addEventListener('submit', async e => {
+    if (e.target.id !== 'ghForm') return;
+    e.preventDefault();
+    const f = e.target;
+    const btn = f.querySelector('.btn.primary');
+    btn.disabled = true;
+    try {
+      const token = f.token.value.trim();
+      const repo = await GitHubSync.verify(token, f.repo.value);
+      const cfg = JSON.stringify({ repo, token });
+      if (f.remember.checked) lsSet(GITHUB, cfg); else ssSet(GITHUB, cfg);
+      renderSync();
+      syncButton();
+      syncer.run();
+    } catch (err) {
+      f.querySelector('.err-text').textContent = connectErrorText(err);
+      btn.disabled = false;
+    }
+  });
+
+  dlg.addEventListener('click', e => {
+    const act = e.target.closest('[data-act]');
+    if (!act) return;
+    if (act.dataset.act === 'gh-sync') syncer.run();
+    if (act.dataset.act === 'gh-disconnect' && confirmed(act)) {
+      lsDel(GITHUB);
+      ssDel(GITHUB);
+      sync = { state: 'off', at: 0, error: null };
+      syncButton();
+      storageNote();
+      renderSync();
+    }
+  });
+
   /* ---------- wiring ---------- */
 
   $('#parseBtn').addEventListener('click', () => {
@@ -516,7 +674,15 @@ IEEE Transactions on Sustainable Energy Editorial Office`;
   $('#importFile').addEventListener('change', e => { if (e.target.files[0]) importJson(e.target.files[0]); e.target.value = ''; });
   document.addEventListener('click', e => { const m = $('.menu'); if (m.open && !m.contains(e.target)) m.open = false; });
 
+  $('#syncBtn').addEventListener('click', () => { renderSync(); dlg.showModal(); });
+  $('#syncClose').addEventListener('click', () => dlg.close());
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && Date.now() - sync.at > 30000) syncer.run();
+  });
+  window.addEventListener('online', () => syncer.run());
+
   records.forEach(recompute);
   applyI18n();
+  syncer.run();
   connectAccount();
 })();

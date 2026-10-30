@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Manuscript Tracker</title>
   <meta name="claude:viewport-fit-sides" content="cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://api.github.com; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -22,6 +24,10 @@
           <button type="button" data-lang="en">EN</button>
           <button type="button" data-lang="zh">中文</button>
         </div>
+        <button type="button" class="btn ghost" id="syncBtn" hidden>
+          <span class="sync-dot" data-state="off" aria-hidden="true"></span>
+          <span data-i18n="syncBtn"></span>
+        </button>
         <details class="menu">
           <summary class="btn ghost" data-i18n="export"></summary>
           <div class="menu-pop">
@@ -90,10 +96,19 @@
     </section>
   </main>
 
+  <dialog id="syncDialog" aria-labelledby="syncTitle">
+    <div class="dlg-head">
+      <h2 id="syncTitle" data-i18n="ghTitle"></h2>
+      <button type="button" class="icon-btn" id="syncClose" aria-label="Close">×</button>
+    </div>
+    <div id="syncBody"></div>
+  </dialog>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="i18n.js"></script>
   <script src="parser.js"></script>
+  <script src="github-sync.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

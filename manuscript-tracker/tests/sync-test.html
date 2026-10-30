@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Sync tests</title></head>
+<body>
+<pre id="out"></pre>
+<script src="../github-sync.js"></script>
+<script>
+const { merge, canon, verify, createSyncer, b64encode, b64decode } = GitHubSync;
+const out = [];
+let fails = 0, total = 0;
+function check(name, cond, detail) {
+  total++;
+  if (!cond) fails++;
+  out.push((cond ? 'ok   ' : 'FAIL ') + name + (cond || detail === undefined ? '' : '\n       ' + JSON.stringify(detail)));
+}
+const rec = (id, modified, title) => ({ id, modified, title: title || id, events: [] });
+const ids = s => (s.records || []).map(r => r.id).join(',');
+
+// In-memory stand-in for the parts of the GitHub REST API the tracker uses.
+function mockGitHub() {
+  const state = { file: null, sha: null, n: 0, puts: 0, beforePut: null,
+    repos: { 'alice/data': { private: true, full_name: 'alice/data' }, 'alice/pub': { private: false, full_name: 'alice/pub' } } };
+  const res = (status, body) => ({ ok: status < 300, status, json: async () => body });
+  async function fetch(url, init) {
+    const path = url.replace('https://api.github.com', '');
+    if (init.headers.Authorization !== 'Bearer good') return res(401, { message: 'Bad credentials' });
+    if (path === '/user') return res(200, { login: 'alice' });
+    let m;
+    if ((m = path.match(/^\/repos\/([^/]+\/[^/]+)$/))) return state.repos[m[1]] ? res(200, state.repos[m[1]]) : res(404, {});
+    if ((m = path.match(/^\/repos\/alice\/data\/contents\/manuscripts\.json$/))) {
+      if (init.method === 'GET') return state.file ? res(200, { sha: state.sha, content: state.file, encoding: 'base64' }) : res(404, {});
+      const body = JSON.parse(init.body);
+      state.puts++;
+      if (state.beforePut) { const f = state.beforePut; state.beforePut = null; f(); }
+      if ((body.sha || null) !== state.sha) return res(409, { message: 'sha mismatch' });
+      state.file = body.content;
+      state.sha = 'sha' + (++state.n);
+      return res(200, { content: { sha: state.sha } });
+    }
+    return res(404, {});
+  }
+  return { state, fetch, remote: () => JSON.parse(b64decode(state.file)) };
+}
+
+function device(gh) {
+  const d = { records: [], deleted: {}, status: [] };
+  d.syncer = createSyncer({
+    config: () => ({ repo: 'alice/data', token: 'good' }),
+    getLocal: () => ({ records: d.records, deleted: d.deleted }),
+    setLocal: m => { d.records = m.records; d.deleted = m.deleted; },
+    onStatus: (s, info) => d.status.push(s === 'error' ? 'error:' + info.status : s),
+    fetch: gh.fetch,
+  });
+  return d;
+}
+
+(async () => {
+  const now = Date.now();
+
+  // --- merge ---
+  let m = merge({ records: [rec('a', 1), rec('b', 5, 'old')] }, { records: [rec('b', 9, 'new'), rec('c', 2)] }, now);
+  check('merge: union of both sides', ids(m) === 'a,b,c', ids(m));
+  check('merge: newer edit wins', m.records.find(r => r.id === 'b').title === 'new');
+  m = merge({ records: [rec('a', 10)] }, { records: [], deleted: { a: 20 } }, now);
+  check('merge: tombstone removes an older copy', ids(m) === '', ids(m));
+  m = merge({ records: [rec('a', 30)] }, { records: [], deleted: { a: 20 } }, now);
+  check('merge: edit made after the deletion survives', ids(m) === 'a', ids(m));
+  m = merge({ records: [], deleted: { old: now - 200 * 864e5, fresh: now } }, null, now);
+  check('merge: tombstones older than 180 days are pruned', Object.keys(m.deleted).join() === 'fresh', m.deleted);
+  const A = { records: [rec('x', 3, 'p'), rec('y', 1)] }, B = { records: [rec('x', 3, 'q')], deleted: { y: 2 } };
+  check('merge: order of arguments does not matter', canon(merge(A, B, now)) === canon(merge(B, A, now)));
+  check('base64 round-trips Chinese text', b64decode(b64encode('投稿追踪 – Décision')) === '投稿追踪 – Décision');
+
+  // --- verify ---
+  const gh0 = mockGitHub();
+  check('verify: bare name resolves the owner', (await verify('good', 'data', gh0.fetch)) === 'alice/data');
+  check('verify: accepts a full GitHub URL', (await verify('good', 'https://github.com/alice/data', gh0.fetch)) === 'alice/data');
+  const err = async p => { try { await p; return 'resolved'; } catch (e) { return e.message === 'GitHub error 401' || e.status ? e.status : e.message; } };
+  check('verify: public repository is refused', (await err(verify('good', 'alice/pub', gh0.fetch))) === 'repo_public');
+  check('verify: missing repository is reported', (await err(verify('good', 'alice/nope', gh0.fetch))) === 'repo_not_found');
+  check('verify: bad token gives 401', (await err(verify('bad', 'alice/data', gh0.fetch))) === 401);
+
+  // --- two devices through the mock API ---
+  const gh = mockGitHub();
+  const laptop = device(gh), phone = device(gh);
+  laptop.records = [rec('r1', now - 3000), rec('r2', now - 3000)];
+  await laptop.syncer.run();
+  check('first sync creates the file', ids(gh.remote()) === 'r1,r2' && laptop.status.at(-1) === 'ok', laptop.status);
+
+  await phone.syncer.run();
+  check('a new device pulls everything', ids(phone) === 'r1,r2', ids(phone));
+
+  const putsBefore = gh.state.puts;
+  await phone.syncer.run();
+  check('no write when nothing changed', gh.state.puts === putsBefore, gh.state.puts - putsBefore);
+
+  phone.records = phone.records.filter(r => r.id !== 'r1');
+  phone.deleted.r1 = now - 2000;
+  phone.records.push(rec('r3', now - 2000));
+  await phone.syncer.run();
+  await laptop.syncer.run();
+  check('deletion and addition reach the other device', ids(laptop) === 'r2,r3', ids(laptop));
+
+  laptop.records.push(rec('r4', now - 1000));
+  gh.state.beforePut = () => {   // another device saves first, so the laptop's write hits a stale sha
+    gh.state.file = b64encode(JSON.stringify({ records: [rec('r5', now - 1000)], deleted: {} }));
+    gh.state.sha = 'other';
+  };
+  await laptop.syncer.run();
+  check('write race: retried and nothing lost', ids(gh.remote()) === 'r2,r3,r4,r5' && laptop.status.at(-1) === 'ok', [ids(gh.remote()), laptop.status]);
+
+  const intruder = device({ fetch: (u, i) => gh.fetch(u, Object.assign({}, i, { headers: Object.assign({}, i.headers, { Authorization: 'Bearer bad' }) })) });
+  await intruder.syncer.run();
+  check('revoked token surfaces as error:401', intruder.status.at(-1) === 'error:401', intruder.status);
+
+  out.push('', `${total - fails}/${total} passed`);
+  document.getElementById('out').textContent = out.join('\n');
+})().catch(e => { document.getElementById('out').textContent = 'EXC ' + e.stack; });
+</script>
+</body>
+</html>
