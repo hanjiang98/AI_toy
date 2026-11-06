@@ -1,0 +1,2091 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wind &amp; Solar Power Flow</title>
+<meta name="description" content="An interactive bilingual primer for electrical engineering undergraduates: power flow with large wind farms and solar plants on the IEEE 14-bus system. Set plant parameters and choose where to connect them.">
+<meta property="og:title" content="Wind &amp; Solar Power Flow">
+<meta property="og:description" content="Interactive EN/中文 primer: connect wind farms and solar plants to any IEEE 14 bus, set their parameters, and see voltages, flows and losses change.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath d='M11 11V21' stroke='%2312202a' stroke-width='2'/%3E%3Cpath d='M11 11L11 2M11 11L3.5 15.5M11 11L18.5 15.5' stroke='%230a7a5c' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* Layout: sibling of the IEEE 14 notebook, but the instrument comes first. The Lab opens the page and the theory
+   below explains what it shows. Green marks the renewable plants, violet marks flows that have reversed. */
+:root{
+  --paper:#f2f5f4; --panel:#ffffff; --ink:#12202a; --ink-2:#3f505c; --muted:#677884;
+  --rule:#d5dde0; --grid:#e5ebec; --wire:#9aaab4; --code:#e9eef0;
+  --accent:#0a7a5c; --accent-ink:#07634a; --link:#0c5f88; --flow:#3f505c;
+  --wind:#1baf7a; --sun:#eda100; --conv:#2a78d6; --rev:#6250d6; --load:#12202a;
+  --v-lo:#2a78d6; --v-mid:#c7ced3; --v-hi:#e34948;
+  --good:#0a7d0a; --warn:#a86a00; --crit:#c23434;
+  --f-display:"Archivo","Noto Sans SC",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0d1517; --panel:#132024; --ink:#e3eaee; --ink-2:#b4c2cb; --muted:#8798a4;
+    --rule:#26363b; --grid:#1c2a2e; --wire:#4d606c; --code:#1a282c;
+    --accent:#3fcba3; --accent-ink:#5fd8b5; --link:#74c3ec; --flow:#b4c2cb;
+    --wind:#199e70; --sun:#c98500; --conv:#3987e5; --rev:#9085e9; --load:#e3eaee;
+    --v-lo:#3987e5; --v-mid:#4a5862; --v-hi:#e66767;
+    --good:#3cc23c; --warn:#e8b04a; --crit:#ec6a6a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0d1517; --panel:#132024; --ink:#e3eaee; --ink-2:#b4c2cb; --muted:#8798a4;
+  --rule:#26363b; --grid:#1c2a2e; --wire:#4d606c; --code:#1a282c;
+  --accent:#3fcba3; --accent-ink:#5fd8b5; --link:#74c3ec; --flow:#b4c2cb;
+  --wind:#199e70; --sun:#c98500; --conv:#3987e5; --rev:#9085e9; --load:#e3eaee;
+  --v-lo:#3987e5; --v-mid:#4a5862; --v-hi:#e66767;
+  --good:#3cc23c; --warn:#e8b04a; --crit:#ec6a6a;
+  color-scheme:dark;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px;color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16.5px;line-height:1.65;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--paper)}
+:root:not([data-lang="zh"]) body [lang="zh-CN"]{display:none!important}
+:root[data-lang="zh"] body [lang="en"]{display:none!important}
+:root[data-lang="zh"] body{line-height:1.8}
+
+a{color:var(--link)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;font-stretch:108%}
+p{margin:0}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.prose{max-width:68ch;display:grid;gap:14px}
+.hero>*,section.chapter>*,.prose>*,.figrow>*,.lab>*,.lab2>*,.tables>*,.tri>*{min-width:0}
+.mono{font-family:var(--f-mono)}
+var{font-style:italic;font-family:"Cambria Math","Times New Roman",serif;font-size:1.06em}
+.small{font-size:14px;color:var(--ink-2)}
+.eyebrow{font:500 12.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+:root[data-lang="zh"] .eyebrow{letter-spacing:.03em}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--rule)}
+.top .wrap{display:flex;align-items:center;gap:20px;height:56px}
+.brand{display:flex;align-items:center;gap:10px;font:700 15px/1 var(--f-display);font-stretch:115%;color:var(--ink);text-decoration:none;white-space:nowrap}
+.brand svg{flex:none}
+.nav{display:flex;gap:2px;margin-left:auto;overflow:hidden}
+.nav a{font-size:14px;color:var(--ink-2);text-decoration:none;padding:6px 9px;border-radius:4px;white-space:nowrap}
+.nav a:hover{background:var(--code);color:var(--ink)}
+.lang{display:flex;border:1px solid var(--rule);border-radius:5px;overflow:hidden;flex:none}
+.lang button{font:500 13px/1 var(--f-body);background:transparent;color:var(--ink-2);border:0;padding:8px 11px;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+@media (max-width:1040px){.nav{display:none}.lang{margin-left:auto}}
+
+/* hero */
+.hero{padding-block:36px 8px;display:grid;gap:14px;max-width:860px}
+.hero h1{font-size:clamp(30px,4.6vw,50px);line-height:1.06;font-weight:760;font-stretch:112%;letter-spacing:-.01em}
+:root[data-lang="zh"] .hero h1{font-stretch:100%;letter-spacing:0;line-height:1.22}
+.lede{font-size:18px;color:var(--ink-2);max-width:66ch}
+
+/* panels */
+.panel{background:var(--panel);border:1px solid var(--rule);border-radius:6px}
+.panel-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:12px 16px;border-bottom:1px solid var(--rule)}
+.panel-head h3{font-size:16px;font-weight:650}
+.panel-body{padding:14px 16px;display:grid;gap:10px;align-content:start}
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.diagram-svg{display:block;width:100%;min-width:640px;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;padding:10px 16px;border-top:1px solid var(--rule);font-size:13px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.vbar{display:inline-grid!important;grid-template-columns:auto 110px auto;gap:6px!important}
+.vbar i{display:block;height:8px;border-radius:2px;background:linear-gradient(90deg,var(--v-lo),var(--v-mid) 37.5%,var(--v-hi))}
+.vbar b{font:500 11.5px var(--f-mono);color:var(--muted)}
+
+/* sections */
+section.chapter{padding-block:48px 8px;display:grid;gap:20px;scroll-margin-top:64px}
+.chap-head{display:grid;grid-template-columns:52px minmax(0,1fr);align-items:baseline;gap:0 6px;max-width:860px}
+.chap-head .n{font:500 14px var(--f-mono);color:var(--accent-ink)}
+.chap-head h2{font-size:clamp(25px,3.2vw,34px);line-height:1.15;font-weight:720}
+:root[data-lang="zh"] .chap-head h2{font-stretch:100%}
+.indent{padding-left:58px}
+@media (max-width:640px){.chap-head{grid-template-columns:1fr}.indent{padding-left:0}}
+.eq{overflow-x:auto;overflow-y:hidden;padding:4px 0;max-width:100%}
+.eq mjx-container{margin:6px 0!important}
+.callout{border-left:3px solid var(--accent);background:var(--panel);padding:12px 16px;border-radius:0 6px 6px 0;font-size:15.5px}
+.callout b{font-weight:600}
+.prose ul{margin:0;padding-left:20px;display:grid;gap:6px}
+
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font:500 12px/1.3 var(--f-mono);letter-spacing:.04em;color:var(--muted);white-space:nowrap}
+td.r,th.r{text-align:right}
+tbody tr:last-child td{border-bottom:0}
+.chip{display:inline-block;font:500 11.5px/1 var(--f-mono);padding:4px 6px;border-radius:3px;border:1px solid var(--rule);color:var(--ink-2);white-space:nowrap}
+.chip.slack{border-color:var(--ink);color:var(--ink)}
+.chip.pv{border-color:var(--conv);color:var(--ink)}
+.chip.re{border-color:var(--accent);color:var(--accent-ink)}
+.chip.lim{border-style:dashed;border-color:var(--crit);color:var(--crit)}
+
+/* figures */
+.figrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.tri{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:900px){.figrow,.tri{grid-template-columns:1fr}}
+figure{margin:0}
+figcaption{font-size:13.5px;color:var(--ink-2);padding:10px 16px;border-top:1px solid var(--rule)}
+.fighead{padding:12px 16px 0;display:grid;gap:4px}
+.fighead b{font:650 15px var(--f-display)}
+.chart{display:block;width:100%;height:auto;overflow:visible;padding:8px 12px}
+.chart .ax{font:400 11px var(--f-mono);fill:var(--muted)}
+.chart .axl{font:500 11.5px var(--f-body);fill:var(--ink-2)}
+.chart .gl{stroke:var(--grid);stroke-width:1}
+.chart .base{stroke:var(--wire);stroke-width:1}
+.chart .tol{stroke:var(--ink-2);stroke-width:1;stroke-dasharray:4 4}
+.chart .lab{font:500 12px var(--f-body);fill:var(--ink)}
+.keyrow{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink-2)}
+.keyrow span{display:inline-flex;align-items:center;gap:6px}
+.keyrow i{display:inline-block;width:14px;height:3px;border-radius:2px}
+.keyrow i.sq{width:10px;height:10px;border-radius:2px}
+
+/* controls */
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:5px;overflow:hidden;flex-wrap:wrap}
+.seg button{font:500 13.5px/1.2 var(--f-body);background:var(--panel);color:var(--ink-2);border:0;padding:8px 11px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--rule)}
+#presets button{padding:8px 8px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.btn{font:500 14px/1.1 var(--f-body);background:var(--panel);color:var(--ink);border:1px solid var(--rule);border-radius:5px;padding:9px 13px;cursor:pointer}
+.btn:hover{border-color:var(--ink-2)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.danger{color:var(--crit)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+/* lab */
+.statusbar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0}
+.statusbar>div{padding:11px 14px;display:grid;gap:1px;min-width:0;align-content:start}
+.statusbar>div+div{border-left:1px solid var(--rule)}
+.statusbar dt{font:500 11px/1.3 var(--f-mono);color:var(--muted);letter-spacing:.03em}
+.statusbar dd{margin:0;font:600 19px/1.25 var(--f-display);font-variant-numeric:tabular-nums}
+.statusbar dd small{display:block;font:400 12.5px/1.35 var(--f-body);color:var(--ink-2)}
+@media (max-width:1000px){.statusbar{grid-template-columns:repeat(3,minmax(0,1fr))}.statusbar>div:nth-child(3n+1){border-left:0}.statusbar>div:nth-child(n+4){border-top:1px solid var(--rule)}}
+@media (max-width:560px){.statusbar{grid-template-columns:repeat(2,minmax(0,1fr))}.statusbar>div{border-left:0!important;border-top:1px solid var(--rule)}.statusbar>div:nth-child(-n+2){border-top:0}.statusbar>div:nth-child(even){border-left:1px solid var(--rule)!important}}
+.alerts{display:flex;flex-wrap:wrap;gap:6px 8px;padding:10px 14px;border-top:1px solid var(--rule)}
+.alert{display:inline-flex;gap:6px;align-items:baseline;font-size:13.5px;padding:3px 8px;border-radius:4px;border:1px solid var(--rule);color:var(--ink-2)}
+.alert b{font-weight:600}
+.alert.crit{border-color:var(--crit);color:var(--crit)}
+.alert.warn{border-color:var(--warn);color:var(--warn)}
+.alert.good{border-color:var(--good);color:var(--good)}
+.alert.rev{border-color:var(--rev);color:var(--ink)}
+.lab{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;align-items:start}
+.lab2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:1040px){.lab,.lab2{grid-template-columns:1fr}}
+.ctrl{display:grid;gap:0}
+.ctrl>div{padding:13px 16px;display:grid;gap:9px}
+.ctrl>div+div{border-top:1px solid var(--rule)}
+.ctrl h4,.h4{margin:0;font:500 12px/1.3 var(--f-mono);letter-spacing:.05em;color:var(--muted)}
+.range{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center}
+.range label{grid-column:1/-1;font-size:13.5px;color:var(--ink-2)}
+.range input{width:100%;accent-color:var(--accent)}
+.range output{font:500 14px var(--f-mono);min-width:76px;text-align:right}
+.check{display:flex;gap:9px;align-items:flex-start;font-size:14.5px;cursor:pointer}
+.check input{margin-top:4px;accent-color:var(--accent)}
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:9px}
+.fields label{display:grid;gap:3px;font-size:12.5px;color:var(--ink-2);align-content:end;line-height:1.3}
+.fields input,.fields select{font:500 14px var(--f-mono);padding:7px 8px;border:1px solid var(--rule);border-radius:4px;background:var(--paper);color:var(--ink);width:100%}
+.matrix{font-size:13px;width:auto}
+.matrix th,.matrix td{padding:5px 3px;text-align:center;border-bottom:1px solid var(--rule)}
+.matrix th:first-child,.matrix td:first-child{text-align:left;padding-right:8px;white-space:nowrap;font:500 13px var(--f-body);color:var(--ink)}
+.matrix input{width:17px;height:17px;margin:0;accent-color:var(--accent);cursor:pointer;display:block}
+.matrix input:disabled{cursor:not-allowed}
+.matrix tr.sun input{accent-color:var(--sun)}
+.pl-table td,.pl-table th{padding:6px 8px;font-size:13.5px}
+.pl-table td{font-variant-numeric:tabular-nums;vertical-align:middle}
+.pl-table tr.sel td{background:var(--code)}
+.pl-sel{font:500 13px var(--f-body);background:none;border:0;color:var(--link);text-decoration:underline;cursor:pointer;padding:2px 0}
+.dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px}
+.readouts{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px 12px}
+.readouts div{display:grid;font-size:12px;color:var(--muted)}
+.readouts b{font:500 15px var(--f-mono);color:var(--ink)}
+.msg{font-size:14px;color:var(--ink-2)}
+.msg.bad{color:var(--crit)}
+.tables{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:1100px){.tables{grid-template-columns:1fr}}
+.res td{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:13px;padding:6px 8px;white-space:nowrap}
+.res th{padding:8px 8px}
+.res tr.sel td{background:var(--code)}
+.res tr.off td{color:var(--muted)}
+.flag{color:var(--crit);font-weight:600}
+.rev{color:var(--rev);font-weight:600}
+.bar-cell{min-width:150px}
+.dbar{position:relative;height:12px;width:100%}
+.dbar::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--wire)}
+.dbar i{position:absolute;top:1px;height:10px;border-radius:2px}
+
+/* exercises */
+.ex{display:grid;gap:10px;max-width:860px}
+details{background:var(--panel);border:1px solid var(--rule);border-radius:6px}
+details>summary{list-style:none;cursor:pointer;padding:14px 16px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:baseline}
+details>summary::-webkit-details-marker{display:none}
+details>summary .q{font-weight:500}
+details>summary .k{font:600 13px var(--f-mono);color:var(--accent-ink)}
+details>summary::after{content:"+";font:500 18px/1 var(--f-mono);color:var(--muted)}
+details[open]>summary::after{content:"−"}
+details .ans{padding:12px 16px 16px;border-top:1px dashed var(--rule);font-size:15.5px;display:grid;gap:8px}
+
+footer{margin-top:64px;border-top:1px solid var(--rule);padding-block:28px 48px;font-size:14px;color:var(--ink-2)}
+footer .wrap{display:grid;gap:10px;max-width:1240px}
+footer ul{margin:0;padding-left:18px;display:grid;gap:3px}
+
+/* diagram */
+.dg-line{fill:none;stroke:var(--wire);stroke-linecap:round;stroke-linejoin:round}
+.dg-line.over{stroke:var(--crit)}
+.dg-flow{fill:none;stroke:var(--flow);stroke-linecap:round;stroke-dasharray:2 11;animation:flow 1.6s linear infinite}
+.dg-flow.rev{stroke:var(--rev)}
+.dg-out{fill:none;stroke:var(--muted);stroke-width:1.4;stroke-dasharray:5 5;opacity:.7}
+.dg-hit{fill:none;stroke:transparent;stroke-width:16;cursor:pointer;pointer-events:stroke}
+.dg-chev{fill:var(--flow)}
+.dg-chev.rev{fill:var(--rev)}
+.dg-sym{fill:var(--panel);stroke:var(--ink-2);stroke-width:1.4}
+.dg-symt{font:600 11px var(--f-mono);fill:var(--ink-2)}
+.dg-stub{stroke:var(--ink-2);stroke-width:1.4;fill:none}
+.dg-load{fill:var(--ink-2)}
+.dg-num{font:700 14px var(--f-display);fill:var(--ink)}
+.dg-v{font:500 10.5px var(--f-mono);fill:var(--ink-2)}
+.dg-v.bad{fill:var(--crit);font-weight:600}
+.dg-flab{font:500 10px var(--f-mono);fill:var(--ink-2);paint-order:stroke;stroke:var(--panel);stroke-width:3px;stroke-linejoin:round}
+.dg-flab.rev{fill:var(--rev)}
+.dg-flab.over{fill:var(--crit);font-weight:600}
+.dg-bus{cursor:pointer}
+.hitbox{fill:transparent}
+.dg-sel{fill:none;stroke:var(--accent);stroke-width:2}
+.dg-x{stroke:var(--crit);stroke-width:2;stroke-linecap:round}
+.dg-plant{cursor:pointer}
+.dg-plant .disc{fill:var(--panel);stroke-width:1.8}
+.dg-plant.wind .disc{stroke:var(--wind)}
+.dg-plant.pv .disc{stroke:var(--sun)}
+.dg-plant.sel .disc{stroke-width:3.2}
+.dg-plant .blade{stroke:var(--wind);stroke-width:2.6;stroke-linecap:round;fill:none}
+.dg-plant .tower{stroke:var(--ink-2);stroke-width:1.5}
+.dg-plant .rotor{transform-box:view-box;animation:spin 3s linear infinite}
+.dg-plant .cell{fill:var(--sun)}
+.dg-plant .lines{stroke:var(--panel);stroke-width:1}
+.dg-pstub{stroke:var(--accent);stroke-width:1.6}
+.dg-pl{font:500 10.5px var(--f-mono);fill:var(--accent-ink);paint-order:stroke;stroke:var(--panel);stroke-width:3px;stroke-linejoin:round}
+@keyframes flow{to{stroke-dashoffset:-26}}
+@keyframes spin{to{rotate:360deg}}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}.dg-flow,.dg-plant .rotor{animation:none}}
+
+#tip{position:fixed;z-index:50;pointer-events:none;max-width:290px;background:var(--ink);color:var(--paper);font:400 12.5px/1.45 var(--f-body);padding:8px 10px;border-radius:5px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+#tip b{font-weight:600}
+#tip .m{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+</style>
+<script>
+window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
+</head>
+<body>
+<noscript><p style="padding:16px">This page needs JavaScript to run the power flow solver. / 本页需要启用 JavaScript 才能运行潮流求解器。</p></noscript>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Wind &amp; Solar Power Flow">
+      <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M11 11V21" stroke="var(--ink)" stroke-width="2"/><path d="M11 11L11 2M11 11L3.5 15.5M11 11L18.5 15.5" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/></svg>
+      <span>RE · PF</span>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#lab"><span lang="en">Lab</span><span lang="zh-CN">实验台</span></a>
+      <a href="#changes"><span lang="en">What changes</span><span lang="zh-CN">有何变化</span></a>
+      <a href="#wind"><span lang="en">Wind</span><span lang="zh-CN">风电</span></a>
+      <a href="#solar"><span lang="en">Solar</span><span lang="zh-CN">光伏</span></a>
+      <a href="#control"><span lang="en">Reactive control</span><span lang="zh-CN">无功控制</span></a>
+      <a href="#effects"><span lang="en">Grid effects</span><span lang="zh-CN">电网影响</span></a>
+      <a href="#sites"><span lang="en">Siting</span><span lang="zh-CN">接入位置</span></a>
+      <a href="#day"><span lang="en">24 hours</span><span lang="zh-CN">24 小时</span></a>
+      <a href="#exercises"><span lang="en">Exercises</span><span lang="zh-CN">练习</span></a>
+    </nav>
+    <div class="lang" role="group" aria-label="Language / 语言">
+      <button type="button" id="lang-en" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" id="lang-zh" data-lang="zh" aria-pressed="false">中文</button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap">
+
+    <section class="hero">
+      <p class="eyebrow"><span lang="en">An interactive primer for electrical engineering undergraduates</span><span lang="zh-CN">面向电气工程本科生的交互式入门</span></p>
+      <h1><span lang="en">Power flow with large wind and solar plants</span><span lang="zh-CN">接入大规模风电场和光伏电站的电网潮流计算</span></h1>
+      <p class="lede"><span lang="en">Choose which IEEE 14 buses host wind farms and solar plants, set their parameters and the weather, and the page solves the full AC power flow in your browser. New to power flow? Start with the <a href="../powerflow-ieee14/">IEEE 14-bus primer</a>.</span><span lang="zh-CN">选择在 IEEE 14 节点系统的哪些节点接入风电场和光伏电站，设置电站参数和天气，页面就会在浏览器中求解完整的交流潮流。如果还不熟悉潮流计算，可以先看 <a href="../powerflow-ieee14/">IEEE 14 节点潮流计算入门</a>。</span></p>
+    </section>
+
+    <!-- 01 LAB -->
+    <section class="chapter" id="lab" style="padding-top:28px">
+      <div class="chap-head"><span class="n">01</span><h2><span lang="en">Lab: connect plants and solve</span><span lang="zh-CN">实验台：接入电站并求解</span></h2></div>
+
+      <div class="panel">
+        <dl class="statusbar" id="statusbar" style="margin:0"></dl>
+        <div class="alerts" id="alerts" role="status"></div>
+      </div>
+
+      <div class="lab">
+        <div class="panel">
+          <div class="panel-head">
+            <h3><span lang="en">One-line diagram</span><span lang="zh-CN">单线图</span></h3>
+            <span class="small"><span lang="en">Click a bus or plant to edit it. Click a line to take it out of service.</span><span lang="zh-CN">点击节点或电站进行修改；点击线路可将其断开。</span></span>
+          </div>
+          <div class="scroll-x"><svg id="labSvg" class="diagram-svg" viewBox="0 0 900 610" role="img" aria-label="IEEE 14-bus one-line diagram with renewable plants"></svg></div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="panel ctrl">
+          <div>
+            <h4><span lang="en">Scenario</span><span lang="zh-CN">场景</span></h4>
+            <div class="seg" role="group" aria-label="Scenario" id="presets">
+              <button type="button" id="pr-none" data-preset="none" aria-pressed="false"><span lang="en">None</span><span lang="zh-CN">无新能源</span></button>
+              <button type="button" id="pr-remote" data-preset="remote" aria-pressed="false"><span lang="en">Remote wind</span><span lang="zh-CN">远端风电</span></button>
+              <button type="button" id="pr-mixed" data-preset="mixed" aria-pressed="true"><span lang="en">Mixed</span><span lang="zh-CN">风光混合</span></button>
+              <button type="button" id="pr-heavy" data-preset="heavy" aria-pressed="false"><span lang="en">High share</span><span lang="zh-CN">高比例</span></button>
+            </div>
+          </div>
+          <div>
+            <h4><span lang="en">Weather and load</span><span lang="zh-CN">天气与负荷</span></h4>
+            <div class="range"><label for="wV"><span lang="en">Wind speed at hub height</span><span lang="zh-CN">轮毂高度风速</span></label><input type="range" id="wV" min="0" max="30" step="0.5"><output id="wVo" for="wV"></output></div>
+            <div class="range"><label for="wG"><span lang="en">Irradiance on the panels</span><span lang="zh-CN">组件辐照度</span></label><input type="range" id="wG" min="0" max="1100" step="10"><output id="wGo" for="wG"></output></div>
+            <div class="range"><label for="wT"><span lang="en">Ambient temperature</span><span lang="zh-CN">环境温度</span></label><input type="range" id="wT" min="-10" max="45" step="1"><output id="wTo" for="wT"></output></div>
+            <div class="range"><label for="wL"><span lang="en">System load factor</span><span lang="zh-CN">系统负荷系数</span></label><input type="range" id="wL" min="0.4" max="2" step="0.05"><output id="wLo" for="wL"></output></div>
+          </div>
+          <div>
+            <h4><span lang="en">Options</span><span lang="zh-CN">选项</span></h4>
+            <label class="check"><input type="checkbox" id="qlim" checked><span><span lang="en">Enforce machine Q limits (PV → PQ)</span><span lang="zh-CN">考虑常规电机无功限值（PV → PQ）</span></span></label>
+            <label class="check"><input type="checkbox" id="showFlows" checked><span><span lang="en">Show MW on lines</span><span lang="zh-CN">在线路上显示有功（MW）</span></span></label>
+            <div class="fields" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+              <label><span><span lang="en">Lowest allowed |V| (pu)</span><span lang="zh-CN">电压下限 |V| (pu)</span></span><input type="number" id="vMin" min="0.8" max="1" step="0.01"></label>
+              <label><span><span lang="en">Highest allowed |V| (pu)</span><span lang="zh-CN">电压上限 |V| (pu)</span></span><input type="number" id="vMax" min="1" max="1.2" step="0.01"></label>
+            </div>
+            <div class="row">
+              <button type="button" class="btn" id="restoreAll"><span lang="en">Restore all lines</span><span lang="zh-CN">恢复所有线路</span></button>
+              <button type="button" class="btn" id="resetCase"><span lang="en">Reset everything</span><span lang="zh-CN">全部重置</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lab2">
+        <div class="panel">
+          <div class="panel-head"><h3><span lang="en">Where to connect</span><span lang="zh-CN">接入节点</span></h3><span class="small"><span lang="en">Tick any buses. Each tick adds a plant with default parameters.</span><span lang="zh-CN">可勾选任意多个节点，每勾选一处就增加一座默认参数的电站。</span></span></div>
+          <div class="panel-body">
+            <div class="scroll-x"><table class="matrix" id="matrix"></table></div>
+            <p class="small"><span lang="en">Bus 7 is greyed out: it is the fictitious star point of the three-winding transformer between buses 4, 7 and 9, so nothing can connect there.</span><span lang="zh-CN">节点 7 不可选：它是节点 4、7、9 之间三绕组变压器的虚拟中性点，实际上无法接入设备。</span></p>
+            <div class="scroll-x"><table class="pl-table" id="plantList"></table></div>
+            <div id="busCard" style="display:grid;gap:8px;border-top:1px solid var(--rule);padding-top:12px">
+              <span class="h4" id="bcTitle"></span>
+              <p class="small" id="bcHint"></p>
+              <div class="fields" id="bcFields">
+                <label id="bcPdL"><span>P<sub>D</sub> (MW)</span><input type="number" id="bcPd" step="0.1"></label>
+                <label id="bcQdL"><span>Q<sub>D</sub> (MVAr)</span><input type="number" id="bcQd" step="0.1"></label>
+                <label id="bcPgL"><span>P<sub>G</sub> (MW)</span><input type="number" id="bcPg" step="1" min="0" max="500"></label>
+                <label id="bcVgL"><span>|V|<sub>set</sub> (pu)</span><input type="number" id="bcVg" step="0.005" min="0.9" max="1.1"></label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3 id="edTitle"></h3><div class="row" id="edBtns" style="margin-left:auto">
+            <button type="button" class="btn" id="edCopy"></button>
+            <button type="button" class="btn danger" id="edRemove"><span lang="en">Remove</span><span lang="zh-CN">移除</span></button>
+          </div></div>
+          <div class="panel-body" id="editorEmpty"><p class="msg"><span lang="en">Tick a bus on the left, or select a plant, to set its parameters.</span><span lang="zh-CN">在左侧勾选节点或选择一座电站，即可设置其参数。</span></p></div>
+          <div class="panel-body" id="editor" hidden>
+            <div class="readouts" id="edRead"></div>
+            <span class="h4"><span lang="en">Plant</span><span lang="zh-CN">电站参数</span></span>
+            <div class="fields" id="fWind">
+              <label><span><span lang="en">Turbines</span><span lang="zh-CN">风机台数</span></span><input type="number" id="fN" min="0" max="500" step="1" data-k="N"></label>
+              <label><span><span lang="en">Turbine rating (MW)</span><span lang="zh-CN">单机容量 (MW)</span></span><input type="number" id="fPt" min="0.1" max="20" step="0.1" data-k="Pt"></label>
+              <label><span><span lang="en">Cut-in speed (m/s)</span><span lang="zh-CN">切入风速 (m/s)</span></span><input type="number" id="fVci" min="0.5" max="10" step="0.5" data-k="vci"></label>
+              <label><span><span lang="en">Rated speed (m/s)</span><span lang="zh-CN">额定风速 (m/s)</span></span><input type="number" id="fVr" min="5" max="20" step="0.5" data-k="vr"></label>
+              <label><span><span lang="en">Cut-out speed (m/s)</span><span lang="zh-CN">切出风速 (m/s)</span></span><input type="number" id="fVco" min="15" max="35" step="0.5" data-k="vco"></label>
+              <label><span><span lang="en">After wake and availability (%)</span><span lang="zh-CN">扣除尾流和停机后 (%)</span></span><input type="number" id="fAvail" min="50" max="100" step="1" data-k="avail"></label>
+              <label><span><span lang="en">Converter rating / rated P</span><span lang="zh-CN">变流器容量 / 额定有功</span></span><input type="number" id="fSR" min="1" max="1.5" step="0.01" data-k="sRatio"></label>
+              <label><span><span lang="en">Site wind factor (%)</span><span lang="zh-CN">场址风速系数 (%)</span></span><input type="number" id="fSiteW" min="50" max="150" step="1" data-k="site"></label>
+            </div>
+            <div class="fields" id="fPv">
+              <label><span><span lang="en">DC capacity (MWp)</span><span lang="zh-CN">直流装机 (MWp)</span></span><input type="number" id="fPdc" min="0" max="1000" step="1" data-k="Pdc"></label>
+              <label><span><span lang="en">DC/AC ratio</span><span lang="zh-CN">容配比 (DC/AC)</span></span><input type="number" id="fDcac" min="1" max="2" step="0.01" data-k="dcac"></label>
+              <label><span><span lang="en">Temp. coefficient (%/°C)</span><span lang="zh-CN">功率温度系数 (%/°C)</span></span><input type="number" id="fGamma" min="-0.6" max="0" step="0.01" data-k="gamma"></label>
+              <label><span>NOCT (°C)</span><input type="number" id="fNoct" min="35" max="55" step="1" data-k="noct"></label>
+              <label><span><span lang="en">System efficiency (%)</span><span lang="zh-CN">系统效率 (%)</span></span><input type="number" id="fEta" min="50" max="100" step="1" data-k="eta"></label>
+              <label><span><span lang="en">Site irradiance factor (%)</span><span lang="zh-CN">场址辐照系数 (%)</span></span><input type="number" id="fSiteP" min="50" max="130" step="1" data-k="site"></label>
+            </div>
+            <div class="range"><label for="fCap"><span lang="en">Active power limit (curtailment)</span><span lang="zh-CN">有功上限（弃风弃光）</span></label><input type="range" id="fCap" min="0" max="100" step="1" data-k="cap"><output id="fCapO" for="fCap"></output></div>
+            <span class="h4"><span lang="en">Reactive power control</span><span lang="zh-CN">无功控制方式</span></span>
+            <div class="seg" role="group" aria-label="Reactive control mode">
+              <button type="button" id="mo-pf" data-mode="pf"><span lang="en">Constant pf</span><span lang="zh-CN">恒功率因数</span></button>
+              <button type="button" id="mo-v" data-mode="v"><span lang="en">Voltage control</span><span lang="zh-CN">恒电压</span></button>
+              <button type="button" id="mo-qv" data-mode="qv">Q(V)</button>
+            </div>
+            <div class="fields" id="fPfBox" style="grid-template-columns:minmax(0,1fr) minmax(0,2fr)">
+              <label><span><span lang="en">Power factor</span><span lang="zh-CN">功率因数</span></span><input type="number" id="fPf" min="0.8" max="1" step="0.01" data-k="pf"></label>
+              <label><span><span lang="en">Reactive direction</span><span lang="zh-CN">无功方向</span></span><select id="fSign"><option value="-1"></option><option value="1"></option></select></label>
+            </div>
+            <div class="fields" id="fVBox"><label><span>|V|<sub>set</sub> (pu)</span><input type="number" id="fVset" min="0.95" max="1.1" step="0.005" data-k="Vset"></label></div>
+            <div class="fields" id="fQvBox">
+              <label><span>V<sub>ref</sub> (pu)</span><input type="number" id="fVref" min="0.95" max="1.1" step="0.005" data-k="Vref"></label>
+              <label><span><span lang="en">Droop D (pu V per pu S)</span><span lang="zh-CN">下垂系数 D（pu V / pu S）</span></span><input type="number" id="fDroop" min="0.01" max="0.2" step="0.005" data-k="droop"></label>
+            </div>
+            <p class="msg" id="edNote"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="figrow">
+        <figure class="panel">
+          <div class="fighead"><b><span lang="en">Bus voltages</span><span lang="zh-CN">节点电压</span></b><div class="keyrow"><span><i style="background:var(--muted)"></i><span lang="en">no renewables</span><span lang="zh-CN">无新能源</span></span><span><i style="background:var(--accent)"></i><span lang="en">this case</span><span lang="zh-CN">当前算例</span></span><span><i style="background:var(--ink-2);height:1px"></i><span lang="en">allowed range</span><span lang="zh-CN">允许范围</span></span></div></div>
+          <svg id="vChart" class="chart" viewBox="0 0 560 240" role="img" aria-label="Voltage at each bus, with and without renewables"></svg>
+        </figure>
+        <figure class="panel">
+          <div class="fighead"><b><span lang="en">Branch loading</span><span lang="zh-CN">支路负载率</span></b><div class="keyrow"><span><i class="sq" style="background:var(--conv)"></i><span lang="en">within rating</span><span lang="zh-CN">未越限</span></span><span><i class="sq" style="background:var(--crit)"></i><span lang="en">overloaded</span><span lang="zh-CN">过载</span></span><span><i style="background:var(--ink)"></i><span lang="en">no renewables</span><span lang="zh-CN">无新能源</span></span><span><span class="rev">⇄</span> <span lang="en">flow reversed</span><span lang="zh-CN">潮流反向</span></span></div></div>
+          <svg id="lChart" class="chart" viewBox="0 0 560 240" role="img" aria-label="Loading of each branch as a percentage of its rating"></svg>
+        </figure>
+      </div>
+      <p class="small" style="max-width:86ch"><span lang="en"><b>About the limits.</b> The IEEE 14 data has no branch ratings. For teaching, each rating here is 140% of the branch's base-case flow, rounded up to 5 MVA, with a minimum of 20 MVA. The default voltage limits are 0.94–1.10 pu because the test case itself holds bus 8 at 1.09 pu. You can change them above.</span><span lang="zh-CN"><b>关于限值。</b>IEEE 14 数据中没有支路容量。为了教学，这里把每条支路的容量设为基础算例潮流的 140%，向上取整到 5 MVA，最小 20 MVA。默认电压限值取 0.94–1.10 pu，因为测试系统本身就把节点 8 维持在 1.09 pu。可在上方修改电压限值。</span></p>
+
+      <div class="tables">
+        <div class="panel">
+          <div class="panel-head"><h3><span lang="en">Bus results</span><span lang="zh-CN">节点结果</span></h3></div>
+          <div class="scroll-x"><table class="res" id="busTbl"></table></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3><span lang="en">Branch flows</span><span lang="zh-CN">支路潮流</span></h3></div>
+          <div class="scroll-x"><table class="res" id="brTbl"></table></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section class="chapter" id="changes">
+      <div class="chap-head"><span class="n">02</span><h2><span lang="en">What changes in the power flow problem</span><span lang="zh-CN">潮流问题发生了什么变化</span></h2></div>
+      <div class="indent prose">
+        <p lang="en">The network equations do not change. <var>Y</var><sub>bus</sub>, the mismatch equations and Newton–Raphson are exactly the same as in a system with only conventional generators. A plant enters the problem as an extra injection at its bus:</p>
+        <p lang="zh-CN">网络方程没有变。<var>Y</var><sub>bus</sub>、功率不平衡方程和牛顿–拉夫逊法，都与只有常规发电机的系统完全相同。电站只是在接入节点增加一项注入功率：</p>
+        <div class="eq">\[ P_i^{\text{sch}} = P_{Gi} + P_{Wi} + P_{Si} - P_{Di},\qquad Q_i^{\text{sch}} = Q_{Gi} + Q_{REi} - Q_{Di} \]</div>
+        <p lang="en">What is new is where those numbers come from, and what they do to the network:</p>
+        <p lang="zh-CN">新的问题在于这些数值从何而来，以及它们会对电网产生什么影响：</p>
+        <ul lang="en">
+          <li><b>Power depends on the weather.</b> <var>P</var><sub>W</sub> and <var>P</var><sub>S</sub> come from plant models driven by wind speed, irradiance and temperature. Sections 03 and 04 cover them.</li>
+          <li><b>Reactive power depends on the converter.</b> The control mode decides whether the bus is PQ or PV, and the converter rating limits <var>Q</var>. Section 05 covers this.</li>
+          <li><b>Flows can reverse.</b> Lines designed to carry power towards a load area may now carry it away, and weak buses may see voltage rise or overloads. Section 06 covers this.</li>
+          <li><b>The slack bus absorbs every change.</b> In this model, any change in renewable output lands on the slack generator at bus 1. A real system shares it among many generators through dispatch and frequency control.</li>
+        </ul>
+        <ul lang="zh-CN">
+          <li><b>有功取决于天气。</b><var>P</var><sub>W</sub>、<var>P</var><sub>S</sub> 由风速、辐照度和温度驱动的电站模型算出，见第 03、04 节。</li>
+          <li><b>无功取决于变流器。</b>控制方式决定节点是 PQ 还是 PV 类型，变流器容量限制 <var>Q</var>，见第 05 节。</li>
+          <li><b>潮流可能反向。</b>原本向负荷区送电的线路可能变成反向送电，薄弱节点可能出现电压升高或线路过载，见第 06 节。</li>
+          <li><b>平衡节点承担所有变化。</b>在本模型中，新能源出力的任何变化都由节点 1 的平衡机承担；实际系统则通过调度和频率控制，由多台机组分担。</li>
+        </ul>
+        <p class="callout" lang="en"><b>A power flow is a snapshot.</b> It finds one steady state for one set of inputs. It says nothing about stability, fault ride-through or fast weather changes. To study variability with it, you run many snapshots, as section 08 does.</p>
+        <p class="callout" lang="zh-CN"><b>潮流计算只是一张“快照”。</b>它针对一组输入求一个稳态解，不能回答稳定性、故障穿越或天气快速变化的问题。要用它研究波动性，就得连续计算很多张快照，第 08 节就是这样做的。</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section class="chapter" id="wind">
+      <div class="chap-head"><span class="n">03</span><h2><span lang="en">Wind farm: from wind speed to megawatts</span><span lang="zh-CN">风电场：从风速到兆瓦</span></h2></div>
+      <div class="indent prose">
+        <p lang="en">Wind power grows with the cube of wind speed, so a small change in wind makes a large change in output. A turbine produces nothing below the cut-in speed <var>v</var><sub>ci</sub>, follows a cubic curve up to the rated speed <var>v</var><sub>r</sub>, holds rated power by pitching its blades, and shuts down above the cut-out speed <var>v</var><sub>co</sub> to protect itself.</p>
+        <p lang="zh-CN">风功率与风速的三次方成正比，因此风速的小变化会带来出力的大变化。风机在切入风速 <var>v</var><sub>ci</sub> 以下不发电，到额定风速 <var>v</var><sub>r</sub> 之间近似沿三次曲线上升，之后靠变桨维持额定功率，超过切出风速 <var>v</var><sub>co</sub> 时停机保护。</p>
+        <div class="eq">\[ P_W(v)=N P_t\,\eta_w \times \begin{cases} 0, & v\lt v_{ci}\ \text{or}\ v\ge v_{co}\\[3pt] \dfrac{v^3-v_{ci}^3}{v_r^3-v_{ci}^3}, & v_{ci}\le v\lt v_r\\[8pt] 1, & v_r\le v\lt v_{co} \end{cases} \]</div>
+        <p lang="en">Here <var>N</var> is the number of turbines, <var>P</var><sub>t</sub> is the rating of each, and <var>η</var><sub>w</sub> covers wake losses and turbines out of service. The farm is treated as one equivalent machine at its bus, and the same wind speed is applied to every turbine. Real power curves come from the manufacturer; the cubic is a common textbook approximation.</p>
+        <p lang="zh-CN">式中 <var>N</var> 为风机台数，<var>P</var><sub>t</sub> 为单机容量，<var>η</var><sub>w</sub> 计及尾流损失和机组停运。整个风电场等值为接在节点上的一台机组，所有风机使用同一风速。实际功率曲线由厂家提供，三次曲线是教材中常用的近似。</p>
+      </div>
+      <figure class="panel">
+        <div class="fighead"><b id="wTitle"></b><span class="small" id="wSub"></span></div>
+        <svg id="wChart" class="chart" viewBox="0 0 900 250" role="img" aria-label="Wind farm power curve"></svg>
+      </figure>
+    </section>
+
+    <!-- 04 -->
+    <section class="chapter" id="solar">
+      <div class="chap-head"><span class="n">04</span><h2><span lang="en">Solar plant: irradiance, temperature and clipping</span><span lang="zh-CN">光伏电站：辐照度、温度与限幅</span></h2></div>
+      <div class="indent prose">
+        <p lang="en">DC power is nearly proportional to irradiance <var>G</var>, and it falls as the cells heat up. A simple estimate of cell temperature uses the panel's nominal operating cell temperature (NOCT):</p>
+        <p lang="zh-CN">直流功率基本与辐照度 <var>G</var> 成正比，并随电池温度升高而下降。电池温度可以用组件的标称工作温度（NOCT）简单估算：</p>
+        <div class="eq">\[ T_c = T_a + \frac{\text{NOCT}-20}{800}\,G,\qquad P_{dc}=P_{\text{STC}}\,\frac{G}{1000}\left[1+\gamma\,(T_c-25)\right] \]</div>
+        <p lang="en">The inverter then limits what reaches the grid. Plants usually have more DC panels than inverter capacity, because panels rarely reach their nameplate power. The ratio is the DC/AC ratio, and the energy lost at the limit is called clipping:</p>
+        <p lang="zh-CN">逆变器进一步限制送入电网的功率。电站的直流组件容量通常大于逆变器容量，因为组件很少达到铭牌功率，两者之比称为容配比（DC/AC），超过逆变器容量被削掉的部分称为限幅损失：</p>
+        <div class="eq">\[ P_S=\min\left(\eta_s\,P_{dc},\ S_{\text{inv}}\right),\qquad S_{\text{inv}}=\frac{P_{\text{STC}}}{\text{DC/AC}} \]</div>
+      </div>
+      <figure class="panel">
+        <div class="fighead"><b id="sTitle"></b><div class="keyrow"><span><i style="background:var(--muted)"></i><span lang="en">before the inverter limit</span><span lang="zh-CN">逆变器限幅前</span></span><span><i style="background:var(--sun)"></i><span lang="en">AC output</span><span lang="zh-CN">交流输出</span></span></div><span class="small" id="sSub"></span></div>
+        <svg id="sChart" class="chart" viewBox="0 0 900 250" role="img" aria-label="Solar plant output versus irradiance"></svg>
+      </figure>
+    </section>
+
+    <!-- 05 -->
+    <section class="chapter" id="control">
+      <div class="chap-head"><span class="n">05</span><h2><span lang="en">Reactive control decides the bus type</span><span lang="zh-CN">无功控制决定节点类型</span></h2></div>
+      <div class="indent prose">
+        <p lang="en">Modern wind turbines and solar inverters connect through power electronics, so their reactive power is set by the controller. The limit is the converter's apparent power rating <var>S</var>. Active power takes its share first, and reactive power gets what is left:</p>
+        <p lang="zh-CN">现代风机和光伏逆变器都通过电力电子变流器并网，无功由控制器设定，其限制来自变流器的视在功率容量 <var>S</var>。有功优先，无功只能使用剩余容量：</p>
+        <div class="eq">\[ |Q_{RE}| \le Q_{\text{cap}}=\sqrt{S^2-P^2} \]</div>
+        <p lang="en">The control mode decides how the bus appears in the power flow:</p>
+        <p lang="zh-CN">控制方式决定该节点在潮流计算中的形式：</p>
+      </div>
+      <div class="indent">
+        <div class="panel scroll-x" style="max-width:860px">
+          <table>
+            <thead><tr><th><span lang="en">Mode</span><span lang="zh-CN">控制方式</span></th><th><span lang="en">Bus type</span><span lang="zh-CN">节点类型</span></th><th><span lang="en">Specified</span><span lang="zh-CN">给定</span></th><th><span lang="en">Solved</span><span lang="zh-CN">待求</span></th><th><span lang="en">In the Newton iteration</span><span lang="zh-CN">在牛顿迭代中</span></th></tr></thead>
+            <tbody>
+              <tr><td><span lang="en">Constant power factor</span><span lang="zh-CN">恒功率因数</span></td><td><span class="chip">PQ</span></td><td><var>P</var>, <var>Q = P</var> tan <var>φ</var></td><td><var>|V|</var>, <var>θ</var></td><td><span lang="en">Works like a negative load.</span><span lang="zh-CN">相当于负的负荷。</span></td></tr>
+              <tr><td><span lang="en">Voltage control</span><span lang="zh-CN">恒电压</span></td><td><span class="chip re">PV</span></td><td><var>P</var>, <var>|V|</var></td><td><var>Q</var>, <var>θ</var></td><td><span lang="en">Becomes PQ at <var>Q</var> = ±<var>Q</var><sub>cap</sub>.</span><span lang="zh-CN">达到 <var>Q</var> = ±<var>Q</var><sub>cap</sub> 时转为 PQ 节点。</span></td></tr>
+              <tr><td>Q(V)</td><td><span class="chip">PQ</span></td><td><var>P</var>, <var>Q</var>(<var>|V|</var>)</td><td><var>|V|</var>, <var>θ</var></td><td><span lang="en">Adds a term to the Jacobian diagonal.</span><span lang="zh-CN">在雅可比矩阵对角元上增加一项。</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="indent prose">
+        <p lang="en">Q(V) control, also called volt-var droop, is the most interesting case for the solver. The scheduled reactive power now depends on the unknown voltage:</p>
+        <p lang="zh-CN">Q(V) 控制（电压–无功下垂）对求解器来说最有意思：给定的无功现在取决于未知的电压：</p>
+        <div class="eq">\[ Q_{RE}(|V|)=S\,\frac{V_{\text{ref}}-|V|}{D},\quad\text{limited to}\ \pm Q_{\text{cap}} \]</div>
+        <p lang="en">Because the mismatch is now Δ<var>Q</var> = <var>Q</var><sup>sch</sup>(<var>|V|</var>) − <var>Q</var>(<var>θ</var>, <var>|V|</var>), the derivative of the schedule enters the Jacobian. Off the limits, the diagonal of block <var>L</var> gains a term <var>S/D</var> (in per unit), and Newton–Raphson keeps its fast convergence. At a limit, the term disappears and <var>Q</var> is constant.</p>
+        <p lang="zh-CN">由于不平衡量变成 Δ<var>Q</var> = <var>Q</var><sup>sch</sup>(<var>|V|</var>) − <var>Q</var>(<var>θ</var>, <var>|V|</var>)，给定值的导数也要进入雅可比矩阵。未达到限值时，<var>L</var> 块对角元增加一项 <var>S/D</var>（标幺值），牛顿法仍然保持快速收敛；达到限值时这一项消失，<var>Q</var> 为常数。</p>
+        <div class="eq">\[ L_{ii}=\frac{Q_i}{|V_i|}-B_{ii}|V_i|+\frac{S}{D} \]</div>
+      </div>
+      <div class="figrow">
+        <figure class="panel">
+          <div class="fighead"><b id="cTitle"></b><span class="small" id="cSub"></span></div>
+          <svg id="cChart" class="chart" viewBox="0 0 440 270" role="img" aria-label="Converter capability circle with operating point"></svg>
+        </figure>
+        <figure class="panel">
+          <div class="fighead"><b id="dTitle"></b><span class="small" id="dSub"></span></div>
+          <svg id="dChart" class="chart" viewBox="0 0 440 270" role="img" aria-label="Q(V) droop characteristic"></svg>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section class="chapter" id="effects">
+      <div class="chap-head"><span class="n">06</span><h2><span lang="en">What the grid feels: voltage, flows and losses</span><span lang="zh-CN">电网的响应：电压、潮流与网损</span></h2></div>
+      <div class="indent prose">
+        <p lang="en">Consider a plant injecting <var>P + jQ</var> at the end of a line with impedance <var>R + jX</var>. For small angle differences, the voltage at the plant rises by approximately:</p>
+        <p lang="zh-CN">设电站经阻抗为 <var>R + jX</var> 的线路注入功率 <var>P + jQ</var>。相角差较小时，电站处的电压升高约为：</p>
+        <div class="eq">\[ \Delta V \approx \frac{R\,P + X\,Q}{|V|} \]</div>
+        <ul lang="en">
+          <li><b>Voltage rise.</b> Active power raises voltage through <var>R</var>, and reactive power acts through <var>X</var>. Where <var>X</var> &gt; <var>R</var>, as on most of this network, absorbing a modest <var>Q</var> can cancel much of the rise caused by <var>P</var>.</li>
+          <li><b>Reverse flow.</b> When a plant's output exceeds the local load, the surplus flows back through lines that normally feed that area. Those lines may be too small for it, even if their voltages look fine.</li>
+          <li><b>Losses follow a U-shape.</b> Generation close to load shortens the path power travels, so losses fall at first. Past a certain share the surplus has to travel back across the network, and losses rise again.</li>
+        </ul>
+        <ul lang="zh-CN">
+          <li><b>电压升高。</b>有功通过 <var>R</var> 抬升电压，无功通过 <var>X</var> 起作用。在 <var>X</var> &gt; <var>R</var> 的线路上（本网络大多如此），吸收不多的 <var>Q</var> 就能抵消 <var>P</var> 带来的大部分电压升高。</li>
+          <li><b>潮流反向。</b>电站出力超过当地负荷时，多余功率经原来向该地区供电的线路倒送。即使电压看起来正常，这些线路也可能容量不足。</li>
+          <li><b>网损呈 U 形。</b>电源靠近负荷时，功率传输路径缩短，网损先下降；比例超过一定程度后，多余功率要反向穿过电网，网损又会上升。</li>
+        </ul>
+        <p lang="en">The sweep below keeps the plants at the same buses as the Lab and scales their installed capacity together, from 0 to 300%. The dashed marker shows where a limit is first broken: a simple estimate of the network's hosting capacity for this plant layout and weather.</p>
+        <p lang="zh-CN">下面的扫描保持实验台中的电站位置不变，把它们的装机容量同步从 0 放大到 300%。虚线标出首次越限的位置，可以作为这种布局和天气条件下电网承载能力的简单估计。</p>
+      </div>
+      <div class="panel" style="padding:10px 16px"><p class="msg" id="swMsg" role="status"></p></div>
+      <div class="tri">
+        <figure class="panel"><div class="fighead"><b><span lang="en">Total losses (MW)</span><span lang="zh-CN">全网网损 (MW)</span></b></div><svg id="sw1" class="chart" viewBox="0 0 360 230" role="img" aria-label="Losses versus renewable output"></svg></figure>
+        <figure class="panel"><div class="fighead"><b><span lang="en">Highest and lowest |V| (pu)</span><span lang="zh-CN">最高、最低 |V| (pu)</span></b></div><svg id="sw2" class="chart" viewBox="0 0 360 230" role="img" aria-label="Voltage extremes versus renewable output"></svg></figure>
+        <figure class="panel"><div class="fighead"><b><span lang="en">Highest branch loading (%)</span><span lang="zh-CN">最高支路负载率 (%)</span></b></div><svg id="sw3" class="chart" viewBox="0 0 360 230" role="img" aria-label="Highest branch loading versus renewable output"></svg></figure>
+      </div>
+    </section>
+
+    <!-- 07 -->
+    <section class="chapter" id="sites">
+      <div class="chap-head"><span class="n">07</span><h2><span lang="en">Where should the next plant go?</span><span lang="zh-CN">下一座电站接在哪里？</span></h2></div>
+      <div class="indent prose">
+        <p lang="en">The same plant has very different effects at different buses. This table adds one more plant of the size you choose, at unity power factor, to each bus in turn, on top of the current Lab case, and solves a power flow each time. Compare the loss change with the limit checks: the bus with the lowest losses is not always usable, and a bus that looks fine for voltage can overload a small line.</p>
+        <p lang="zh-CN">同样一座电站，接在不同节点上的影响差别很大。下表在当前实验台算例的基础上，把一座指定容量、单位功率因数的新电站依次接到每个节点，每次都求解一遍潮流。请对比网损变化和限值检查：网损最低的节点不一定可用，电压看起来正常的节点也可能使小容量线路过载。</p>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="range" style="min-width:min(320px,100%);flex:1;max-width:420px"><label for="sizeP"><span lang="en">Size of the added plant</span><span lang="zh-CN">新增电站容量</span></label><input type="range" id="sizeP" min="10" max="150" step="5" value="60"><output id="sizePo" for="sizeP"></output></div>
+          <span class="small" id="siteNote"></span>
+        </div>
+        <div class="scroll-x"><table class="res" id="siteTbl"></table></div>
+      </div>
+    </section>
+
+    <!-- 08 -->
+    <section class="chapter" id="day">
+      <div class="chap-head"><span class="n">08</span><h2><span lang="en">Twenty-four snapshots of one day</span><span lang="zh-CN">一天的 24 张快照</span></h2></div>
+      <div class="indent prose">
+        <p lang="en">Running one power flow per hour is the simplest way to study variability. This is called a quasi-static time series. The chart uses the plants from the Lab with the hourly weather and load of the selected day. <b>These profiles are illustrative values written for this page, not measured data.</b></p>
+        <p lang="zh-CN">每小时计算一次潮流，是研究波动性最简单的方法，称为准静态时序仿真。图中使用实验台里的电站，以及所选典型日的逐时天气和负荷。<b>这些曲线是为本页编写的示意数据，不是实测数据。</b></p>
+        <p lang="en">Watch the gap between load and conventional generation. Solar opens it around midday and leaves a steep evening ramp, which is the "duck curve" shape. Wind output often follows a different pattern, which can make the combined output less variable.</p>
+        <p lang="zh-CN">留意负荷与常规机组出力之间的差距。光伏在中午把差距拉大，傍晚留下一段陡峭的爬坡，也就是“鸭子曲线”。风电出力通常有不同的日变化规律，两者组合后总出力的波动可能更小。</p>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="seg" role="group" aria-label="Day profile" id="dayBtns">
+            <button type="button" id="dp-spring" data-day="spring" aria-pressed="true"><span lang="en">Windy spring day</span><span lang="zh-CN">多风春日</span></button>
+            <button type="button" id="dp-summer" data-day="summer" aria-pressed="false"><span lang="en">Sunny summer day</span><span lang="zh-CN">晴朗夏日</span></button>
+            <button type="button" id="dp-winter" data-day="winter" aria-pressed="false"><span lang="en">Calm winter day</span><span lang="zh-CN">静风冬日</span></button>
+          </div>
+          <div class="keyrow"><span><i class="sq" style="background:var(--wind)"></i><span lang="en">wind</span><span lang="zh-CN">风电</span></span><span><i class="sq" style="background:var(--sun)"></i><span lang="en">solar</span><span lang="zh-CN">光伏</span></span><span><i style="background:var(--load)"></i><span lang="en">load</span><span lang="zh-CN">负荷</span></span><span><i style="background:var(--conv)"></i><span lang="en">conventional</span><span lang="zh-CN">常规机组</span></span></div>
+        </div>
+        <svg id="dayP" class="chart" viewBox="0 0 900 280" role="img" aria-label="Hourly renewable generation, load and conventional generation"></svg>
+        <div class="readouts" id="dayStats" style="padding:0 16px 14px"></div>
+      </div>
+      <div class="figrow">
+        <figure class="panel"><div class="fighead"><b><span lang="en">Highest and lowest |V| (pu)</span><span lang="zh-CN">最高、最低 |V| (pu)</span></b></div><svg id="dayV" class="chart" viewBox="0 0 440 220" role="img" aria-label="Hourly voltage extremes"></svg></figure>
+        <figure class="panel"><div class="fighead"><b><span lang="en">Highest branch loading (%)</span><span lang="zh-CN">最高支路负载率 (%)</span></b></div><svg id="dayL" class="chart" viewBox="0 0 440 220" role="img" aria-label="Hourly highest branch loading"></svg></figure>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="range" style="min-width:min(320px,100%);flex:1;max-width:460px"><label for="hour"><span lang="en">Hour</span><span lang="zh-CN">时刻</span></label><input type="range" id="hour" min="0" max="23" step="1" value="12"><output id="houro" for="hour"></output></div>
+          <span class="small" id="hourRead"></span>
+          <button type="button" class="btn" id="hourLoad" style="margin-left:auto"><span lang="en">Open this hour in the Lab</span><span lang="zh-CN">在实验台打开此时刻</span></button>
+        </div>
+        <details style="border:0;border-radius:0 0 6px 6px">
+          <summary><span class="k">i</span><span class="q"><span lang="en">Hourly data as a table</span><span lang="zh-CN">逐时数据表</span></span></summary>
+          <div class="ans scroll-x"><table class="res" id="dayTbl"></table></div>
+        </details>
+      </div>
+    </section>
+
+    <!-- 09 -->
+    <section class="chapter" id="exercises">
+      <div class="chap-head"><span class="n">09</span><h2><span lang="en">Exercises</span><span lang="zh-CN">练习</span></h2></div>
+      <div class="indent prose">
+        <p lang="en">Try each one in the Lab before opening the answer. The numbers in the answers are computed by the solver when the page loads.</p>
+        <p lang="zh-CN">先在实验台上尝试，再展开答案。答案中的数字都在页面加载时由求解器算出。</p>
+      </div>
+      <div class="indent ex" id="exList"></div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p lang="en"><b>What this model leaves out.</b> Each plant is one equivalent machine connected directly to its bus, without a collector network or step-up transformer. All plants share one weather input, apart from a site factor. The page covers steady-state balanced operation only: no frequency response, stability, fault ride-through, harmonics or forecast uncertainty. It is for teaching, not for planning studies.</p>
+    <p lang="zh-CN"><b>本模型未考虑的内容。</b>每座电站等值为一台直接接在节点上的机组，没有集电网络和升压变压器；除场址系数外，所有电站使用同一组天气输入。本页只涉及三相平衡稳态运行，不考虑频率响应、稳定性、故障穿越、谐波和预测不确定性。仅用于教学，不能用于规划研究。</p>
+    <p lang="en"><b>Data.</b> IEEE 14-bus test case from the University of Washington Power Systems Test Case Archive, with the same values as MATPOWER's <span class="mono">case14</span>. Plant parameters, branch ratings and daily profiles are teaching values chosen for this page. The solver is written in JavaScript and runs entirely in your browser.</p>
+    <p lang="zh-CN"><b>数据来源。</b>IEEE 14 节点测试系统取自华盛顿大学电力系统测试算例库，参数与 MATPOWER 的 <span class="mono">case14</span> 相同。电站参数、支路容量和典型日曲线都是为本页选取的教学数值。求解器用 JavaScript 编写，完全在浏览器中运行。</p>
+    <p><span lang="en">Further reading:</span><span lang="zh-CN">延伸阅读：</span></p>
+    <ul>
+      <li>T. Ackermann (ed.), <i>Wind Power in Power Systems</i>, 2nd ed., Wiley, 2012.</li>
+      <li>G. M. Masters, <i>Renewable and Efficient Electric Power Systems</i>, 2nd ed., Wiley, 2013.</li>
+      <li>IEEE Std 2800-2022, interconnection and interoperability of inverter-based resources with transmission systems.</li>
+      <li>IEEE Std 1547-2018, interconnection of distributed energy resources with electric power systems.</li>
+      <li>J. J. Grainger, W. D. Stevenson, <i>Power System Analysis</i>, McGraw-Hill, 1994.</li>
+    </ul>
+    <p><a href="../powerflow-ieee14/"><span lang="en">IEEE 14-bus power flow primer</span><span lang="zh-CN">IEEE 14 节点潮流计算入门</span></a> · <a href="https://github.com/hanjiang98/AI_toy/issues"><span lang="en">Send feedback</span><span lang="zh-CN">提交反馈</span></a></p>
+  </div>
+</footer>
+
+<div id="tip" hidden></div>
+
+<script id="pf-core">
+/* Power flow core with wind and solar plants: data, plant models, Y-bus, Newton–Raphson, Q control. No DOM access. */
+const PF = (() => {
+  const BASE = 100;
+  // [id, type (3 slack, 2 PV, 1 PQ), Pd MW, Qd MVAr, Gs MW, Bs MVAr]
+  const BUS = [
+    [1,3,0,0,0,0],[2,2,21.7,12.7,0,0],[3,2,94.2,19,0,0],[4,1,47.8,-3.9,0,0],[5,1,7.6,1.6,0,0],
+    [6,2,11.2,7.5,0,0],[7,1,0,0,0,0],[8,2,0,0,0,0],[9,1,29.5,16.6,0,19],[10,1,9,5.8,0,0],
+    [11,1,3.5,1.8,0,0],[12,1,6.1,1.6,0,0],[13,1,13.5,5.8,0,0],[14,1,14.9,5,0,0]];
+  // [bus, Pg MW, Qmax, Qmin, Vset pu, kind]
+  const GEN = [[1,232.4,10,0,1.06,'gen'],[2,40,50,-40,1.045,'gen'],[3,0,40,0,1.01,'sc'],[6,0,24,-6,1.07,'sc'],[8,0,24,-6,1.09,'sc']];
+  // [from, to, r, x, b, tap (0 = line)]
+  const BRANCH = [
+    [1,2,0.01938,0.05917,0.0528,0],[1,5,0.05403,0.22304,0.0492,0],[2,3,0.04699,0.19797,0.0438,0],
+    [2,4,0.05811,0.17632,0.034,0],[2,5,0.05695,0.17388,0.0346,0],[3,4,0.06701,0.17103,0.0128,0],
+    [4,5,0.01335,0.04211,0,0],[4,7,0,0.20912,0,0.978],[4,9,0,0.55618,0,0.969],[5,6,0,0.25202,0,0.932],
+    [6,11,0.09498,0.1989,0,0],[6,12,0.12291,0.25581,0,0],[6,13,0.06615,0.13027,0,0],[7,8,0,0.17615,0,0],
+    [7,9,0,0.11001,0,0],[9,10,0.03181,0.0845,0,0],[9,14,0.12711,0.27038,0,0],[10,11,0.08205,0.19207,0,0],
+    [12,13,0.22092,0.19988,0,0],[13,14,0.17093,0.34802,0,0]];
+  const NO_PLANT_BUS = 7; // fictitious star point of the three-winding transformer 4-7-9
+
+  const WIND_DEFAULT = { type: 'wind', N: 20, Pt: 3, vci: 3, vr: 12, vco: 25, avail: 92, site: 100, sRatio: 1.1, cap: 100, mode: 'pf', pf: 1, pfSign: 1, Vset: 1.03, Vref: 1.03, droop: 0.05 };
+  const PV_DEFAULT = { type: 'pv', Pdc: 60, dcac: 1.25, gamma: -0.35, noct: 45, eta: 90, site: 100, cap: 100, mode: 'pf', pf: 1, pfSign: 1, Vset: 1.03, Vref: 1.03, droop: 0.05 };
+  const newPlant = (type, bus, over) => Object.assign({}, type === 'wind' ? WIND_DEFAULT : PV_DEFAULT, { bus }, over);
+
+  function baseCase() {
+    return {
+      buses: BUS.map(b => ({ id: b[0], type: b[1], Pd: b[2], Qd: b[3], Gs: b[4], Bs: b[5] })),
+      gens: GEN.map(g => ({ bus: g[0], Pg: g[1], Qmax: g[2], Qmin: g[3], Vg: g[4], kind: g[5] })),
+      branches: BRANCH.map(r => ({ f: r[0], t: r[1], r: r[2], x: r[3], b: r[4], tap: r[5] || 1, xfmr: r[5] !== 0, on: true })),
+      plants: [], weather: { v: 10, G: 800, Ta: 25 }, loadScale: 1, reScale: 1, qlim: true, vlim: [0.94, 1.10], extra: null
+    };
+  }
+
+  /* ----- plant models ----- */
+  // Per-unit wind power curve: cubic between cut-in and rated speed.
+  function windPU(p, v) {
+    if (!(p.vci < p.vr && p.vr < p.vco)) return 0;
+    if (v < p.vci || v >= p.vco) return 0;
+    if (v >= p.vr) return 1;
+    const a = p.vci ** 3, b = p.vr ** 3;
+    return (v ** 3 - a) / (b - a);
+  }
+  // Before the converter/inverter limit: { avail MW, S MVA }.
+  function plantAvail(p, w, scale) {
+    const k = scale === undefined ? 1 : scale;
+    if (p.type === 'wind') {
+      const Pr = p.N * p.Pt;
+      return { avail: k * Pr * windPU(p, w.v * p.site / 100) * p.avail / 100, S: k * Pr * p.sRatio, Prated: k * Pr };
+    }
+    const G = w.G * p.site / 100, Tc = w.Ta + (p.noct - 20) * G / 800;
+    const dc = p.Pdc * (G / 1000) * (1 + p.gamma / 100 * (Tc - 25));
+    return { avail: k * Math.max(0, dc * p.eta / 100), S: k * p.Pdc / p.dcac, Prated: k * p.Pdc / p.dcac, Tc };
+  }
+  function plantOutput(p, w, scale) {
+    const a = plantAvail(p, w, scale);
+    const lim = Math.min(a.avail, a.S), P = lim * p.cap / 100;
+    return { avail: a.avail, S: a.S, Prated: a.Prated, Tc: a.Tc, P, clipped: a.avail - lim, curtailed: lim - P, Qcap: Math.sqrt(Math.max(0, a.S * a.S - P * P)) };
+  }
+  function pfQ(p, o) {
+    if (p.pf >= 1) return 0;
+    const q = p.pfSign * o.P * Math.tan(Math.acos(p.pf));
+    return Math.max(-o.Qcap, Math.min(o.Qcap, q));
+  }
+  function droopQ(p, o, v) {
+    const q = o.S * (p.Vref - v) / p.droop;
+    if (q >= o.Qcap) return { q: o.Qcap, slope: 0, sat: true };
+    if (q <= -o.Qcap) return { q: -o.Qcap, slope: 0, sat: true };
+    return { q, slope: -o.S / p.droop, sat: false };
+  }
+
+  /* ----- network ----- */
+  const zeros = (n, m) => Array.from({ length: n }, () => new Float64Array(m));
+  function ybus(c) {
+    const n = c.buses.length, G = zeros(n, n), B = zeros(n, n), brY = [];
+    for (const br of c.branches) {
+      const d = br.r * br.r + br.x * br.x, gs = br.r / d, bs = -br.x / d, t = br.tap, hb = br.b / 2;
+      const Y = { ff: [gs / (t * t), (bs + hb) / (t * t)], ft: [-gs / t, -bs / t], tf: [-gs / t, -bs / t], tt: [gs, bs + hb] };
+      brY.push(Y);
+      if (!br.on) continue;
+      const f = br.f - 1, k = br.t - 1;
+      G[f][f] += Y.ff[0]; B[f][f] += Y.ff[1]; G[k][k] += Y.tt[0]; B[k][k] += Y.tt[1];
+      G[f][k] += Y.ft[0]; B[f][k] += Y.ft[1]; G[k][f] += Y.tf[0]; B[k][f] += Y.tf[1];
+    }
+    c.buses.forEach((b, i) => { G[i][i] += b.Gs / BASE; B[i][i] += b.Bs / BASE; });
+    return { n, G, B, brY };
+  }
+
+  function setup(c) {
+    const s = ybus(c), n = s.n;
+    s.type = Int8Array.from(c.buses.map(b => b.type));
+    s.Vset = new Float64Array(n).fill(1);
+    s.Pd = Float64Array.from(c.buses.map(b => b.Pd * c.loadScale));
+    s.Qd = Float64Array.from(c.buses.map(b => b.Qd * c.loadScale));
+    s.Pg = new Float64Array(n);
+    s.Pre = new Float64Array(n);
+    s.Qfix = new Float64Array(n);
+    s.droops = Array.from({ length: n }, () => []);
+    s.vplants = Array.from({ length: n }, () => []);
+    s.ctrl = Array.from({ length: n }, () => null);
+    for (const g of c.gens) {
+      const i = g.bus - 1;
+      s.Vset[i] = g.Vg; s.Pg[i] += g.Pg;
+      if (c.qlim && s.type[i] === 2) s.ctrl[i] = { Qmin: g.Qmin, Qmax: g.Qmax, kind: 'machine' };
+    }
+    const baseType = Int8Array.from(s.type);
+    s.plants = c.plants.map(p => {
+      const o = plantOutput(p, c.weather, c.reScale), i = p.bus - 1;
+      const pl = { p, o, i, Qinj: 0, ignoredV: false };
+      s.Pre[i] += o.P;
+      if (p.mode === 'pf') { pl.Qinj = pfQ(p, o); s.Qfix[i] += pl.Qinj; }
+      else if (p.mode === 'qv') s.droops[i].push(pl);
+      else if (baseType[i] === 1) s.vplants[i].push(pl);
+      else pl.ignoredV = true; // the bus already has a machine that controls its voltage
+      return pl;
+    });
+    s.vplants.forEach((list, i) => {
+      if (!list.length) return;
+      s.type[i] = 2;
+      s.Vset[i] = list[0].p.Vset;
+      const q = list.reduce((a, pl) => a + pl.o.Qcap, 0);
+      s.ctrl[i] = { Qmin: -q, Qmax: q, kind: 'plant' };
+    });
+    s.Psch = new Float64Array(n);
+    s.Qbase = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      s.Psch[i] = (s.Pg[i] + s.Pre[i] - s.Pd[i]) / BASE;
+      s.Qbase[i] = (s.Qfix[i] - s.Qd[i]) / BASE;
+    }
+    if (c.extra) s.Psch[c.extra.bus - 1] += c.extra.P / BASE;
+    s.branches = c.branches;
+    s.clamp = Array.from({ length: n }, () => null);
+    return s;
+  }
+
+  function injections(s, V, th) {
+    const n = s.n, P = new Float64Array(n), Q = new Float64Array(n);
+    for (let i = 0; i < n; i++) for (let k = 0; k < n; k++) {
+      const g = s.G[i][k], b = s.B[i][k];
+      if (g === 0 && b === 0) continue;
+      const a = th[i] - th[k], cs = Math.cos(a), sn = Math.sin(a), vv = V[i] * V[k];
+      P[i] += vv * (g * cs + b * sn);
+      Q[i] += vv * (g * sn - b * cs);
+    }
+    return { P, Q };
+  }
+  function indices(type) {
+    const pvpq = [], pq = [];
+    type.forEach((t, i) => { if (t !== 3) pvpq.push(i); if (t === 1) pq.push(i); });
+    return { pvpq, pq };
+  }
+  // Scheduled Q at a PQ bus (pu) and its slope d(Qsch)/d|V|, which is nonzero under Q(V) droop.
+  function qSched(s, i, v) {
+    let q = s.Qbase[i], sl = 0;
+    for (const pl of s.droops[i]) { const d = droopQ(pl.p, pl.o, v); q += d.q / BASE; sl += d.slope / BASE; }
+    return { q, sl };
+  }
+  function mismatch(s, V, P, Q, ix) {
+    const F = new Float64Array(ix.pvpq.length + ix.pq.length);
+    ix.pvpq.forEach((i, a) => { F[a] = s.Psch[i] - P[i]; });
+    ix.pq.forEach((i, b) => { F[ix.pvpq.length + b] = qSched(s, i, V[i]).q - Q[i]; });
+    return F;
+  }
+  const maxAbs = F => F.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+
+  function jacobian(s, V, th, P, Q, ix) {
+    const n = s.n, np = ix.pvpq.length, m = np + ix.pq.length, J = zeros(m, m);
+    const pp = new Int32Array(n).fill(-1), qp = new Int32Array(n).fill(-1);
+    ix.pvpq.forEach((i, a) => { pp[i] = a; });
+    ix.pq.forEach((i, b) => { qp[i] = b; });
+    for (let i = 0; i < n; i++) {
+      const ri = pp[i], rq = qp[i];
+      if (ri < 0) continue;
+      for (let k = 0; k < n; k++) {
+        const g = s.G[i][k], b = s.B[i][k];
+        if (g === 0 && b === 0) continue;
+        const ck = pp[k], cq = qp[k];
+        if (i === k) {
+          const v = V[i];
+          J[ri][ck] = -Q[i] - b * v * v;
+          if (cq >= 0) J[ri][np + cq] = P[i] / v + g * v;
+          if (rq >= 0) {
+            J[np + rq][ck] = P[i] - g * v * v;
+            J[np + rq][np + cq] = Q[i] / v - b * v - qSched(s, i, v).sl;
+          }
+        } else {
+          const a = th[i] - th[k], cs = Math.cos(a), sn = Math.sin(a);
+          const s1 = g * sn - b * cs, c1 = g * cs + b * sn;
+          if (ck >= 0) J[ri][ck] = V[i] * V[k] * s1;
+          if (cq >= 0) J[ri][np + cq] = V[i] * c1;
+          if (rq >= 0) {
+            if (ck >= 0) J[np + rq][ck] = -V[i] * V[k] * c1;
+            if (cq >= 0) J[np + rq][np + cq] = V[i] * s1;
+          }
+        }
+      }
+    }
+    return J;
+  }
+  function lusolve(A0, rhs) {
+    const m = A0.length, A = A0.map(r => Float64Array.from(r)), x = Float64Array.from(rhs);
+    for (let c = 0; c < m; c++) {
+      let p = c, best = Math.abs(A[c][c]);
+      for (let r = c + 1; r < m; r++) if (Math.abs(A[r][c]) > best) { best = Math.abs(A[r][c]); p = r; }
+      if (best < 1e-12) return null;
+      if (p !== c) { [A[p], A[c]] = [A[c], A[p]]; [x[p], x[c]] = [x[c], x[p]]; }
+      for (let r = c + 1; r < m; r++) {
+        const f = A[r][c] / A[c][c];
+        if (f === 0) continue;
+        for (let k = c; k < m; k++) A[r][k] -= f * A[c][k];
+        x[r] -= f * x[c];
+      }
+    }
+    for (let i = m - 1; i >= 0; i--) { let v = x[i]; for (let k = i + 1; k < m; k++) v -= A[i][k] * x[k]; x[i] = v / A[i][i]; }
+    return x;
+  }
+
+  function nr(s, V, th, tol, maxIt) {
+    const ix = indices(s.type), np = ix.pvpq.length, seq = [];
+    for (let it = 0; ; it++) {
+      const { P, Q } = injections(s, V, th), F = mismatch(s, V, P, Q, ix), norm = maxAbs(F);
+      seq.push(norm);
+      if (norm < tol) return { ok: true, it, seq, V, th };
+      if (it >= maxIt || !isFinite(norm) || norm > 1e6) return { ok: false, it, seq, V, th };
+      const dx = lusolve(jacobian(s, V, th, P, Q, ix), F);
+      if (!dx) return { ok: false, singular: true, it, seq, V, th };
+      ix.pvpq.forEach((i, a) => { th[i] += dx[a]; });
+      ix.pq.forEach((i, b) => { V[i] += dx[np + b]; });
+    }
+  }
+
+  function islanded(c) {
+    const n = c.buses.length, adj = Array.from({ length: n }, () => []);
+    for (const br of c.branches) if (br.on) { adj[br.f - 1].push(br.t - 1); adj[br.t - 1].push(br.f - 1); }
+    const seen = new Uint8Array(n), stack = [c.buses.findIndex(b => b.type === 3)];
+    seen[stack[0]] = 1;
+    while (stack.length) for (const k of adj[stack.pop()]) if (!seen[k]) { seen[k] = 1; stack.push(k); }
+    return c.buses.filter((_, i) => !seen[i]).map(b => b.id);
+  }
+
+  let RATING = null;
+
+  function solve(c) {
+    const isl = islanded(c);
+    if (isl.length) return { status: 'islanded', islanded: isl };
+    const s = setup(c), tol = 1e-8, maxIt = 30;
+    let V = Float64Array.from(s.Vset), th = new Float64Array(s.n);
+    let r = nr(s, V, th, tol, maxIt), total = r.it, firstSeq = r.seq;
+    const released = new Int8Array(s.n), events = [];
+    // Outer loop: a PV bus at a Q limit becomes PQ, and returns to PV when the voltage says it should.
+    for (let pass = 0; r.ok && pass < 25; pass++) {
+      const { Q } = injections(s, r.V, r.th);
+      let changed = false;
+      for (let i = 0; i < s.n; i++) {
+        const ct = s.ctrl[i];
+        if (!ct) continue;
+        if (s.type[i] === 2) {
+          const q = (Q[i] - s.Qbase[i]) * BASE; // MVAr demanded of the voltage-controlling device
+          const qs = q - s.droops[i].reduce((a, pl) => a + droopQ(pl.p, pl.o, r.V[i]).q, 0);
+          const side = qs > ct.Qmax + 1e-6 ? 'max' : qs < ct.Qmin - 1e-6 ? 'min' : null;
+          if (side) {
+            const lim = side === 'max' ? ct.Qmax : ct.Qmin;
+            s.type[i] = 1; s.Qbase[i] += lim / BASE; s.clamp[i] = { side, q: lim, want: qs };
+            changed = true;
+          }
+        } else if (s.clamp[i] && released[i] < 2) {
+          const cl = s.clamp[i];
+          if ((cl.side === 'max' && r.V[i] > s.Vset[i] + 1e-6) || (cl.side === 'min' && r.V[i] < s.Vset[i] - 1e-6)) {
+            s.type[i] = 2; s.Qbase[i] -= cl.q / BASE; s.clamp[i] = null; released[i]++;
+            changed = true;
+          }
+        }
+      }
+      if (!changed) break;
+      for (let i = 0; i < s.n; i++) if (s.type[i] === 2) r.V[i] = s.Vset[i];
+      r = nr(s, Float64Array.from(r.V), Float64Array.from(r.th), tol, maxIt);
+      total += r.it;
+    }
+    const out = { status: r.ok ? 'ok' : 'fail', it: r.it, total, seq: r.seq, firstSeq, singular: !!r.singular, s };
+    if (!r.ok) return out;
+    const VV = r.V, TT = r.th, { P, Q } = injections(s, VV, TT);
+
+    // Reactive power of each plant, then of each machine.
+    const qCtrl = new Float64Array(s.n);
+    s.plants.forEach(pl => { if (pl.p.mode === 'qv') { const d = droopQ(pl.p, pl.o, VV[pl.i]); pl.Qinj = d.q; pl.sat = d.sat; } });
+    const dSum = i => s.droops[i].reduce((a, pl) => a + pl.Qinj, 0);
+    for (let i = 0; i < s.n; i++) qCtrl[i] = Q[i] * BASE + s.Qd[i] - s.Qfix[i] - dSum(i);
+    s.vplants.forEach((list, i) => {
+      const tot = list.reduce((a, pl) => a + pl.o.Qcap, 0);
+      list.forEach(pl => { pl.Qinj = tot > 0 ? qCtrl[i] * pl.o.Qcap / tot : 0; pl.clamped = s.clamp[i] ? s.clamp[i].side : null; });
+    });
+    const genAt = {};
+    c.gens.forEach(g => { genAt[g.bus] = g; });
+    out.buses = c.buses.map((b, i) => ({
+      id: b.id, type: s.type[i], baseType: b.type, Vm: VV[i], Va: TT[i] * 180 / Math.PI,
+      gen: genAt[b.id] || null, clamp: s.clamp[i], vctrl: s.vplants[i].length > 0,
+      Pg: genAt[b.id] ? P[i] * BASE + s.Pd[i] - s.Pre[i] - (c.extra && c.extra.bus === b.id ? c.extra.P : 0) : 0,
+      Qg: genAt[b.id] ? qCtrl[i] : 0,
+      Pd: s.Pd[i], Qd: s.Qd[i], Pre: s.Pre[i],
+      Qre: s.plants.filter(pl => pl.i === i).reduce((a, pl) => a + pl.Qinj, 0)
+    }));
+    const cx = i => [VV[i] * Math.cos(TT[i]), VV[i] * Math.sin(TT[i])];
+    const mul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+    const add = (a, b) => [a[0] + b[0], a[1] + b[1]];
+    const sOf = (v, cur) => [(v[0] * cur[0] + v[1] * cur[1]) * BASE, (v[1] * cur[0] - v[0] * cur[1]) * BASE];
+    out.branches = c.branches.map((br, j) => {
+      if (!br.on) return { on: false };
+      const Y = s.brY[j], vf = cx(br.f - 1), vt = cx(br.t - 1);
+      const Sf = sOf(vf, add(mul(Y.ff, vf), mul(Y.ft, vt))), St = sOf(vt, add(mul(Y.tf, vf), mul(Y.tt, vt)));
+      const Smax = Math.max(Math.hypot(Sf[0], Sf[1]), Math.hypot(St[0], St[1]));
+      return { on: true, Pf: Sf[0], Qf: Sf[1], Pt: St[0], Qt: St[1], Pl: Sf[0] + St[0], Ql: Sf[1] + St[1], Smax, rating: RATING ? RATING[j] : null, load: RATING ? 100 * Smax / RATING[j] : null };
+    });
+    const sum = (arr, k) => arr.reduce((a, x) => a + (x[k] || 0), 0);
+    let vmin = out.buses[0], vmax = out.buses[0];
+    out.buses.forEach(b => { if (b.Vm < vmin.Vm) vmin = b; if (b.Vm > vmax.Vm) vmax = b; });
+    let maxLoad = null;
+    out.branches.forEach((b, j) => { if (b.on && (!maxLoad || b.load > maxLoad.load)) maxLoad = { load: b.load, j }; });
+    const eps = 1e-9;
+    out.plants = s.plants;
+    out.totals = {
+      Pg: sum(out.buses, 'Pg'), Pd: sum(out.buses, 'Pd'), Pre: sum(out.buses, 'Pre') + (c.extra ? c.extra.P : 0),
+      Pl: sum(out.branches, 'Pl'), Ql: sum(out.branches, 'Ql'), vmin, vmax, maxLoad,
+      Pslack: out.buses[c.buses.findIndex(b => b.type === 3)].Pg,
+      Vlow: out.buses.filter(b => b.Vm < c.vlim[0] - eps).map(b => b.id),
+      Vhigh: out.buses.filter(b => b.Vm > c.vlim[1] + eps).map(b => b.id),
+      over: out.branches.map((b, j) => (b.on && b.load > 100 + eps ? j : -1)).filter(j => j >= 0),
+      clipped: s.plants.reduce((a, pl) => a + pl.o.clipped, 0), curtailed: s.plants.reduce((a, pl) => a + pl.o.curtailed, 0)
+    };
+    return out;
+  }
+
+  // Same network and load with every plant removed: the reference for voltage changes and reversed flows.
+  const without = c => Object.assign({}, c, { plants: [], extra: null, reScale: 1 });
+
+  // The IEEE 14-bus data has no branch ratings. Teaching rule: 140% of the base-case flow, rounded up to 5 MVA, at least 20 MVA.
+  function setRatings() {
+    const b = solve(baseCase());
+    RATING = b.branches.map(x => Math.max(20, Math.ceil(1.4 * x.Smax / 5) * 5));
+    return RATING;
+  }
+  setRatings();
+
+  return { BASE, NO_PLANT_BUS, baseCase, newPlant, windPU, plantAvail, plantOutput, pfQ, droopQ, ybus, solve, without, islanded, ratings: () => RATING, WIND_DEFAULT, PV_DEFAULT };
+})();
+</script>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const NS = 'http://www.w3.org/2000/svg';
+function S(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const minus = s => s.replace(/-/g, '−');
+const fx = (v, d) => minus((Math.abs(v) < 0.5 * Math.pow(10, -d) ? 0 : v).toFixed(d));
+const sgn = (v, d) => (v > 0 ? '+' : '') + fx(v, d);
+const brName = b => `${b.f}–${b.t}`;
+
+/* ---------- language ---------- */
+const T = {
+  en: {
+    slack: 'Slack', pv: 'PV', pq: 'PQ', wind: 'Wind farm', solar: 'Solar plant', windS: 'Wind', solarS: 'Solar',
+    bus: 'Bus', branch: 'Branch', atBus: b => `bus ${b}`, buses: l => `bus ${l}`,
+    stRE: 'Renewable output', stShare: v => `${v}% of load`, stSlack: 'Slack generator', stLoss: 'Losses', stNoRE: v => `${v} MW without renewables`,
+    stV: 'Voltage range', stLoad: 'Highest loading', stNR: 'Newton–Raphson', stIter: n => `${n} iterations`, stBr: b => `branch ${b}`,
+    okAll: 'All limits met', low: l => `Low voltage: bus ${l}`, high: l => `High voltage: bus ${l}`, over: l => `Overloaded: ${l}`,
+    rev: (n, l) => `${n} reversed: ${l}`, slackNeg: v => `The slack would absorb ${v} MW. A real system would reduce conventional output or curtail renewables.`,
+    clip: v => `${v} MW clipped by converter limits`, curt: v => `${v} MW curtailed`,
+    qClamp: l => `Q limit reached: ${l}`, ignoredV: l => `Voltage control ignored at ${l}: a machine already controls that bus`,
+    fail: 'Did not converge. The case may exceed what the network can deliver. Lower the load factor or the plant sizes.',
+    singular: 'The Jacobian became singular, so the case is at or beyond its transfer limit. Lower the load factor or the plant sizes.',
+    isl: l => `Bus ${l} lost every connection to the slack bus, so there is no solution. Click a dashed line to restore it.`,
+    noRes: 'No results: this case has no valid solution.',
+    lgV: '|V| pu', lgFlow: 'MW flow', lgRev: 'reversed flow', lgGen: 'generator', lgSC: 'sync. condenser', lgLoad: 'load', lgX: 'transformer', lgW: 'wind farm', lgS: 'solar plant',
+    tipBus: (b, ty) => `<b>Bus ${b}</b> · ${ty}`, tipLoad: 'Load', tipGen: 'Generator', tipSC: 'Condenser', tipRE: 'Renewables',
+    dv: 'Change from no renewables',
+    tipLine: (f, to, x) => `<b>${x ? 'Transformer' : 'Line'} ${f}–${to}</b>`, tipLoss: 'loss', tipLd: 'loading', tipRev: 'Flow reversed compared with no renewables',
+    clickBus: 'Click to select', clickOut: 'Click to take out of service', clickIn: 'Out of service. Click to restore.', clickPl: 'Click to edit',
+    mxW: 'Wind', mxS: 'Solar', plType: 'Plant', plSize: 'Installed', plP: 'P now', plQ: 'Q now', plMode: 'Control', edit: 'edit',
+    noPl: 'No plants connected yet. Tick a bus above.',
+    mode: { pf: 'pf', v: 'V', qv: 'Q(V)' },
+    bcNone: 'Bus', bcHint: 'Click a bus on the diagram to edit its load or machine.',
+    bcTitle: b => `Bus ${b}`, bc7: 'Fictitious star point of a three-winding transformer. No load or plant can connect here.',
+    bcSlack: 'Slack bus. Its P and Q come from the solution; only the voltage setpoint is fixed.',
+    bcPV: k => k === 'sc' ? 'PV bus with a synchronous condenser (P = 0).' : 'PV bus with a generator.', bcPQ: 'PQ bus. Loads are entered at load factor 1.00×.',
+    edWind: b => `Wind farm at bus ${b}`, edSolar: b => `Solar plant at bus ${b}`, edNone: 'Plant parameters', copyW: 'Copy to all wind farms', copyS: 'Copy to all solar plants',
+    rdAvail: 'Available', rdP: 'Output P', rdQ: 'Output Q', rdS: 'Rating S', rdCap: 'Q room', rdV: 'Bus |V|', rdClip: 'Clipped', rdCurt: 'Curtailed', rdTc: 'Cell temp.',
+    inject: 'Inject Q (raises V)', absorb: 'Absorb Q (lowers V)',
+    badWind: 'Check the speeds: cut-in must be below rated, and rated below cut-out. Output stays at zero until they are in order.',
+    noteIgnored: 'This bus already has a machine controlling its voltage, so this plant runs at Q = 0. Pick another bus or mode.',
+    noteClamped: 'The plant has reached its Q limit, so the bus has become PQ and its voltage has left the setpoint.',
+    noteSat: 'The Q(V) characteristic has reached its limit, so Q is constant.', noteFull: 'At full output the converter has little Q room left.',
+    thV: '|V| pu', thDV: 'Δ|V|', thA: 'θ °', thRe: 'P<sub>RE</sub>', thQre: 'Q<sub>RE</sub>', thPg: 'P<sub>G</sub>', thQg: 'Q<sub>G</sub>', thPd: 'P<sub>D</sub>', thQd: 'Q<sub>D</sub>', thType: 'Type',
+    thPf: 'P<sub>from</sub> MW', thQf: 'Q<sub>from</sub> MVAr', thS: 'S MVA', thRate: 'Rating', thLd: 'Load %', thLoss: 'Loss MW', off: 'out of service',
+    axBus: 'bus', axBr: 'branch', tipV: (b, v, n) => `<b>Bus ${b}</b><br>this case <span class="m">${v} pu</span><br>no renewables <span class="m">${n} pu</span>`,
+    tipBr: (b, l, n, S2, r) => `<b>Branch ${b}</b><br>loading <span class="m">${l}%</span> (${S2} of ${r} MVA)<br>no renewables <span class="m">${n}%</span>`,
+    axV: 'wind speed (m/s)', axP: 'P (MW)', axG: 'irradiance (W/m²)', axQ: 'Q (MVAr), + = injecting', axVm: 'bus voltage |V| (pu)', axQv: 'Q (MVAr)',
+    hi: 'highest', lo: 'lowest', cutin: 'cut-in', rated: 'rated', cutout: 'cut-out', here: 'now',
+    wTitle: b => `Power curve of the wind farm at bus ${b}`, wEx: 'Power curve of an example wind farm (none connected)',
+    wSub: (v, p, cap) => `Now: ${v} m/s at the site, ${p} MW of ${cap} MW installed.`,
+    sTitle: b => `Output of the solar plant at bus ${b}`, sEx: 'Output of an example solar plant (none connected)',
+    sSub: (t, tc, d) => `At ${t} °C ambient. At the current irradiance, cell temperature is ${tc} °C, which changes DC power by ${d}%.`,
+    cTitle: (ty, b) => `Capability of the ${ty} at bus ${b}`, cEx: 'Capability of an example plant', cSub: (S2, q) => `S = ${S2} MVA. Q room at this output: ±${q} MVAr.`,
+    pwind: 'wind farm', psolar: 'solar plant',
+    dTitle: (ty, b) => `Q(V) characteristic of the ${ty} at bus ${b}`, dEx: 'Q(V) characteristic of an example plant', dSub: (r, d, on) => `V_ref = ${r} pu, D = ${d}.${on ? '' : ' This plant is not in Q(V) mode now, so the marker is hidden.'}`,
+    swNone: 'Connect at least one plant in the Lab to run this sweep.',
+    swOk: (m) => `No limit is broken up to ${m} MW of renewable output.`,
+    swHit: (mw, pct, why) => `The first limit is broken at about ${mw} MW of renewable output (${pct}% of the current capacity): ${why}.`,
+    swFail: pct => `The solver stops converging at ${pct}% of the current capacity.`,
+    whyV: l => `voltage at bus ${l}`, whyL: l => `overload on ${l}`, swAtZero: 'A limit is already broken with no renewables, so the sweep cannot estimate a hosting capacity. Check the load factor and line outages.',
+    minLoss: (mw, l) => `Lowest losses: ${l} MW at ${mw} MW.`,
+    axRE: 'renewable output (MW)', tipSw: (re, v) => `RE <span class="m">${re} MW</span><br><span class="m">${v}</span>`,
+    siteNote: 'Unity power factor, on top of the current Lab case.',
+    thDL: 'Change in losses', thVb: '|V| at bus', thVx: 'Highest |V|', thLx: 'Highest loading', thVerdict: 'Limits', vOk: 'OK', vHigh: 'high V', vLow: 'low V', vOver: 'overload', vFail: 'no solution', vBest: 'lowest losses within limits', vSlack: '(slack bus)',
+    tipDL: (b, d) => `<b>Bus ${b}</b><br>losses change by <span class="m">${d} MW</span>`,
+    axH: 'hour', dayMW: 'MW', dsRE: 'Renewable energy', dsLoad: 'Load energy', dsShare: 'Share of load', dsLoss: 'Losses', dsPeak: 'Largest hourly ramp', dsViol: 'Hours over a limit', dsFail: 'Hours unsolved',
+    tipHr: h => `<b>${String(h).padStart(2, '0')}:00</b>`, hrRead: (v, g, ta, l) => `Wind ${v} m/s · Sun ${g} W/m² · ${ta} °C · Load ${l}×`,
+    thH: 'Hour', thW: 'Wind MW', thSo: 'Solar MW', thLo: 'Load MW', thCo: 'Conv. MW', thVmin: 'V min', thVmax: 'V max', thMax: 'Max load %', thLs: 'Loss MW', tipW: 'wind', tipS: 'solar', tipLo: 'load', tipCo: 'conventional', solved: 'no solution'
+  },
+  zh: {
+    slack: '平衡', pv: 'PV', pq: 'PQ', wind: '风电场', solar: '光伏电站', windS: '风电', solarS: '光伏',
+    bus: '节点', branch: '支路', atBus: b => `节点 ${b}`, buses: l => `节点 ${l}`,
+    stRE: '新能源出力', stShare: v => `占负荷 ${v}%`, stSlack: '平衡机', stLoss: '网损', stNoRE: v => `无新能源时 ${v} MW`,
+    stV: '电压范围', stLoad: '最高负载率', stNR: '牛顿–拉夫逊法', stIter: n => `${n} 次迭代`, stBr: b => `支路 ${b}`,
+    okAll: '所有限值均满足', low: l => `低电压：节点 ${l}`, high: l => `高电压：节点 ${l}`, over: l => `过载：${l}`,
+    rev: (n, l) => `${n} 条潮流反向：${l}`, slackNeg: v => `平衡机需吸收 ${v} MW。实际系统会降低常规机组出力或弃风弃光。`,
+    clip: v => `变流器限幅 ${v} MW`, curt: v => `弃电 ${v} MW`,
+    qClamp: l => `达到无功限值：${l}`, ignoredV: l => `${l} 的恒电压控制未生效：该节点已有电机控制电压`,
+    fail: '未收敛。算例可能超出了电网的输送能力，请降低负荷系数或电站容量。',
+    singular: '雅可比矩阵奇异，算例已达到或超过输送极限。请降低负荷系数或电站容量。',
+    isl: l => `节点 ${l} 与平衡节点之间已没有任何连接，潮流无解。点击虚线可恢复线路。`,
+    noRes: '无结果：该算例没有有效解。',
+    lgV: '|V| pu', lgFlow: '有功潮流', lgRev: '反向潮流', lgGen: '发电机', lgSC: '同步调相机', lgLoad: '负荷', lgX: '变压器', lgW: '风电场', lgS: '光伏电站',
+    tipBus: (b, ty) => `<b>节点 ${b}</b> · ${ty}`, tipLoad: '负荷', tipGen: '发电机', tipSC: '调相机', tipRE: '新能源',
+    dv: '相对无新能源的变化',
+    tipLine: (f, to, x) => `<b>${x ? '变压器' : '线路'} ${f}–${to}</b>`, tipLoss: '损耗', tipLd: '负载率', tipRev: '与无新能源时相比，潮流反向',
+    clickBus: '点击选择', clickOut: '点击断开', clickIn: '已断开，点击恢复。', clickPl: '点击修改',
+    mxW: '风电', mxS: '光伏', plType: '电站', plSize: '装机', plP: '当前 P', plQ: '当前 Q', plMode: '控制', edit: '修改',
+    noPl: '尚未接入电站。请在上方勾选节点。',
+    mode: { pf: 'pf', v: 'V', qv: 'Q(V)' },
+    bcNone: '节点', bcHint: '点击图中的节点，修改其负荷或电机参数。',
+    bcTitle: b => `节点 ${b}`, bc7: '三绕组变压器的虚拟中性点，不能接入负荷或电站。',
+    bcSlack: '平衡节点：P、Q 由计算结果得出，只给定电压设定值。',
+    bcPV: k => k === 'sc' ? 'PV 节点，接同步调相机（P = 0）。' : 'PV 节点，接发电机。', bcPQ: 'PQ 节点。负荷按负荷系数 1.00× 时的数值输入。',
+    edWind: b => `节点 ${b} 的风电场`, edSolar: b => `节点 ${b} 的光伏电站`, edNone: '电站参数', copyW: '复制到所有风电场', copyS: '复制到所有光伏电站',
+    rdAvail: '可用功率', rdP: '有功输出', rdQ: '无功输出', rdS: '容量 S', rdCap: '无功裕度', rdV: '节点 |V|', rdClip: '限幅损失', rdCurt: '弃电', rdTc: '电池温度',
+    inject: '发出无功（抬高电压）', absorb: '吸收无功（降低电压）',
+    badWind: '请检查风速：切入风速应小于额定风速，额定风速应小于切出风速。否则出力保持为零。',
+    noteIgnored: '该节点已有电机控制电压，所以这座电站按 Q = 0 运行。请换一个节点或控制方式。',
+    noteClamped: '电站已达到无功限值，节点转为 PQ 类型，电压不再维持在设定值。',
+    noteSat: 'Q(V) 特性已达到限值，Q 为常数。', noteFull: '满发时变流器几乎没有无功裕度。',
+    thV: '|V| pu', thDV: 'Δ|V|', thA: 'θ °', thRe: 'P<sub>RE</sub>', thQre: 'Q<sub>RE</sub>', thPg: 'P<sub>G</sub>', thQg: 'Q<sub>G</sub>', thPd: 'P<sub>D</sub>', thQd: 'Q<sub>D</sub>', thType: '类型',
+    thPf: 'P<sub>首端</sub> MW', thQf: 'Q<sub>首端</sub> MVAr', thS: 'S MVA', thRate: '容量', thLd: '负载率 %', thLoss: '损耗 MW', off: '已断开',
+    axBus: '节点', axBr: '支路', tipV: (b, v, n) => `<b>节点 ${b}</b><br>当前算例 <span class="m">${v} pu</span><br>无新能源 <span class="m">${n} pu</span>`,
+    tipBr: (b, l, n, S2, r) => `<b>支路 ${b}</b><br>负载率 <span class="m">${l}%</span>（${S2} / ${r} MVA）<br>无新能源 <span class="m">${n}%</span>`,
+    axV: '风速 (m/s)', axP: 'P (MW)', axG: '辐照度 (W/m²)', axQ: 'Q (MVAr)，正值为发出', axVm: '节点电压 |V| (pu)', axQv: 'Q (MVAr)',
+    hi: '最高', lo: '最低', cutin: '切入', rated: '额定', cutout: '切出', here: '当前',
+    wTitle: b => `节点 ${b} 风电场的功率曲线`, wEx: '示例风电场的功率曲线（当前未接入风电场）',
+    wSub: (v, p, cap) => `当前：场址风速 ${v} m/s，出力 ${p} MW，装机 ${cap} MW。`,
+    sTitle: b => `节点 ${b} 光伏电站的出力`, sEx: '示例光伏电站的出力（当前未接入光伏）',
+    sSub: (t, tc, d) => `环境温度 ${t} °C。在当前辐照度下，电池温度为 ${tc} °C，使直流功率变化 ${d}%。`,
+    cTitle: (ty, b) => `节点 ${b} ${ty}的运行范围`, cEx: '示例电站的运行范围', cSub: (S2, q) => `S = ${S2} MVA。当前出力下的无功裕度：±${q} MVAr。`,
+    pwind: '风电场', psolar: '光伏电站',
+    dTitle: (ty, b) => `节点 ${b} ${ty}的 Q(V) 特性`, dEx: '示例电站的 Q(V) 特性', dSub: (r, d, on) => `V_ref = ${r} pu，D = ${d}。${on ? '' : '这座电站当前不是 Q(V) 模式，因此不显示运行点。'}`,
+    swNone: '请先在实验台接入至少一座电站，才能进行扫描。',
+    swOk: (m) => `新能源出力达到 ${m} MW 时仍未越限。`,
+    swHit: (mw, pct, why) => `新能源出力约 ${mw} MW（当前容量的 ${pct}%）时首次越限：${why}。`,
+    swFail: pct => `容量达到当前的 ${pct}% 时求解器不再收敛。`,
+    whyV: l => `节点 ${l} 电压越限`, whyL: l => `${l} 过载`, swAtZero: '没有新能源时就已经越限，无法用这次扫描估计承载能力。请检查负荷系数和断开的线路。',
+    minLoss: (mw, l) => `网损最低：出力 ${mw} MW 时为 ${l} MW。`,
+    axRE: '新能源出力 (MW)', tipSw: (re, v) => `新能源 <span class="m">${re} MW</span><br><span class="m">${v}</span>`,
+    siteNote: '单位功率因数，叠加在当前实验台算例上。',
+    thDL: '网损变化', thVb: '该节点 |V|', thVx: '最高 |V|', thLx: '最高负载率', thVerdict: '限值', vOk: '满足', vHigh: '电压高', vLow: '电压低', vOver: '过载', vFail: '无解', vBest: '满足限值且网损最低', vSlack: '（平衡节点）',
+    tipDL: (b, d) => `<b>节点 ${b}</b><br>网损变化 <span class="m">${d} MW</span>`,
+    axH: '时刻', dayMW: 'MW', dsRE: '新能源电量', dsLoad: '负荷电量', dsShare: '占负荷比例', dsLoss: '网损电量', dsPeak: '最大小时爬坡', dsViol: '越限小时数', dsFail: '无解小时数',
+    tipHr: h => `<b>${String(h).padStart(2, '0')}:00</b>`, hrRead: (v, g, ta, l) => `风速 ${v} m/s · 辐照 ${g} W/m² · ${ta} °C · 负荷 ${l}×`,
+    thH: '时刻', thW: '风电 MW', thSo: '光伏 MW', thLo: '负荷 MW', thCo: '常规 MW', thVmin: '最低 V', thVmax: '最高 V', thMax: '最高负载 %', thLs: '损耗 MW', tipW: '风电', tipS: '光伏', tipLo: '负荷', tipCo: '常规机组', solved: '无解'
+  }
+};
+let LANG = 'en';
+const t = (k, ...a) => { const v = T[LANG][k] ?? T.en[k]; return typeof v === 'function' ? v(...a) : v; };
+const typeName = ty => ty === 3 ? t('slack') : ty === 2 ? t('pv') : t('pq');
+
+/* ---------- colors from tokens ---------- */
+let C = {};
+function hex(h) { h = h.trim().replace('#', ''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); }
+function readTokens() {
+  const cs = getComputedStyle(document.documentElement);
+  for (const k of ['v-lo', 'v-mid', 'v-hi', 'rule']) C[k] = hex(cs.getPropertyValue('--' + k));
+}
+const mix = (a, b, u) => `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * u)).join(',')})`;
+function vColor(v) { return v < 1 ? mix(C['v-mid'], C['v-lo'], Math.min(1, (1 - v) / 0.06)) : mix(C['v-mid'], C['v-hi'], Math.min(1, (v - 1) / 0.10)); }
+
+/* ---------- scenarios ---------- */
+const W = (bus, MW, o) => PF.newPlant('wind', bus, Object.assign({ N: Math.round(MW / 3), Pt: 3 }, o));
+const P = (bus, MW, o) => PF.newPlant('pv', bus, Object.assign({ Pdc: MW }, o));
+const PRESETS = {
+  none: { plants: () => [], weather: { v: 10, G: 800, Ta: 25 } },
+  remote: { plants: () => [W(14, 60)], weather: { v: 10, G: 800, Ta: 25 } },
+  mixed: { plants: () => [W(14, 45), W(12, 30), P(4, 60), P(3, 40)], weather: { v: 10, G: 800, Ta: 25 } },
+  heavy: { plants: () => [W(14, 120), W(12, 60), W(10, 60), P(4, 100), P(3, 100)], weather: { v: 10, G: 800, Ta: 25 } }
+};
+
+/* ---------- state ---------- */
+let CASE = PF.baseCase();
+let SELBUS = null, SELP = null, PRESET = 'mixed', DAY = 'spring';
+let RES, REF;
+function applyPreset(name) {
+  const pr = PRESETS[name];
+  PRESET = name;
+  CASE.plants = pr.plants();
+  CASE.weather = Object.assign({}, pr.weather);
+  SELP = CASE.plants[0] || null;
+  SELBUS = SELP ? SELP.bus : null;
+}
+
+/* ---------- diagram geometry ---------- */
+const POS = { 1: [90, 330], 2: [190, 500], 3: [460, 540], 4: [470, 400], 5: [290, 330], 6: [290, 190], 7: [650, 400],
+  8: [800, 400], 9: [650, 260], 10: [560, 175], 11: [430, 125], 12: [130, 85], 13: [320, 55], 14: [720, 95] };
+const LBL = { 1: [0, -26, 'middle'], 2: [-36, -2, 'end'], 3: [40, -6, 'start'], 4: [-36, -2, 'end'], 5: [12, -24, 'start'],
+  6: [40, -2, 'start'], 7: [0, 26, 'middle'], 8: [0, 26, 'middle'], 9: [-36, -2, 'end'], 10: [36, -2, 'start'],
+  11: [0, -24, 'middle'], 12: [-36, -2, 'end'], 13: [0, -24, 'middle'], 14: [36, -2, 'start'] };
+const GENPOS = { 1: 'left', 2: 'below', 3: 'below', 6: 'left', 8: 'right' };
+const LOADX = { 2: -27, 3: 27, 4: 27, 5: 0, 6: -24, 9: 27, 10: -24, 11: 0, 12: -24, 13: 12, 14: 24 };
+// Plant icon centres: [wind, solar]. Each sits in free space next to its bus.
+const PLANTPOS = { 1: [[42, 378], [88, 382]], 2: [[244, 544], [290, 548]], 3: [[408, 572], [362, 572]], 4: [[536, 448], [582, 448]],
+  5: [[246, 288], [204, 288]], 6: [[344, 246], [388, 246]], 8: [[790, 352], [838, 352]], 9: [[722, 312], [768, 312]],
+  10: [[512, 228], [468, 228]], 11: [[404, 190], [452, 190]], 12: [[72, 142], [118, 146]], 13: [[362, 104], [268, 104]], 14: [[712, 44], [758, 44]] };
+const HALF = 30;
+
+function branchPts(f, to) {
+  const [x1, y1] = POS[f], [x2, y2] = POS[to];
+  const a1 = [x1 + clamp((x2 - x1) * 0.25, -22, 22), y1], a2 = [x2 + clamp((x1 - x2) * 0.25, -22, 22), y2];
+  const dy = y2 - y1;
+  if (Math.abs(dy) <= 50) return [a1, a2];
+  const s = Math.sign(dy) * 14;
+  return [a1, [a1[0], a1[1] + s], [a2[0], a2[1] - s], a2];
+}
+const ptsD = pts => 'M' + pts.map(p => p.map(v => v.toFixed(1)).join(' ')).join('L');
+const isRev = j => {
+  if (RES.status !== 'ok' || !REF || REF.status !== 'ok') return false;
+  const a = RES.branches[j], b = REF.branches[j];
+  if (!a.on || !b.on) return false;
+  const pa = (a.Pf - a.Pt) / 2, pb = (b.Pf - b.Pt) / 2;
+  return Math.abs(pa) > 1 && Math.abs(pb) > 1 && pa * pb < 0;
+};
+
+function renderDiagram() {
+  const svg = $('#labSvg'); svg.textContent = '';
+  const showFlows = $('#showFlows').checked, ok = RES.status === 'ok';
+  const isl = RES.status === 'islanded' ? new Set(RES.islanded) : new Set();
+  const gLines = S('g', null, svg), gPlant = S('g', null, svg), gSym = S('g', null, svg), gBus = S('g', null, svg), gLab = S('g', null, svg), gIcon = S('g', null, svg);
+  let maxP = 120;
+  if (ok) RES.branches.forEach(b => { if (b.on) maxP = Math.max(maxP, Math.abs(b.Pf), Math.abs(b.Pt)); });
+
+  CASE.branches.forEach((br, j) => {
+    const pts = branchPts(br.f, br.t), d = ptsD(pts), r = ok ? RES.branches[j] : null;
+    const mid = pts.length === 2 ? 0 : 1, A = pts[mid], B = pts[mid + 1];
+    const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, ang = Math.atan2(B[1] - A[1], B[0] - A[0]);
+    let tip;
+    if (!br.on) {
+      S('path', { d, class: 'dg-out' }, gLines);
+      S('path', { d: `M${mx - 5} ${my - 5}L${mx + 5} ${my + 5}M${mx + 5} ${my - 5}L${mx - 5} ${my + 5}`, class: 'dg-x' }, gLines);
+      tip = t('tipLine', br.f, br.t, br.xfmr) + '<br>' + t('clickIn');
+    } else {
+      const pAvg = r ? (r.Pf - r.Pt) / 2 : 0, w = 1.4 + 5 * Math.abs(pAvg) / maxP, rev = isRev(j), over = r && r.load > 100;
+      S('path', { d, class: 'dg-line' + (over ? ' over' : ''), 'stroke-width': w.toFixed(2) }, gLines);
+      if (r && Math.abs(pAvg) > 0.05) {
+        const dir = pAvg >= 0 ? pts : pts.slice().reverse();
+        const fl = S('path', { d: ptsD(dir), class: 'dg-flow' + (rev ? ' rev' : ''), 'stroke-width': Math.max(1.6, w * 0.6).toFixed(2) }, gLines);
+        fl.style.animationDuration = clamp(3.2 - Math.abs(pAvg) / 40, 0.7, 3.2).toFixed(2) + 's';
+        const a = pAvg >= 0 ? ang : ang + Math.PI, u = br.xfmr ? 0.22 : 0.5;
+        const cx = A[0] + (B[0] - A[0]) * u, cy = A[1] + (B[1] - A[1]) * u;
+        const ch = [[6, 0], [-4, -4.5], [-4, 4.5]].map(([x, y]) => [cx + x * Math.cos(a) - y * Math.sin(a), cy + x * Math.sin(a) + y * Math.cos(a)]);
+        S('path', { d: ptsD(ch) + 'Z', class: 'dg-chev' + (rev ? ' rev' : '') }, gLines);
+        if (showFlows) {
+          const nx = -Math.sin(ang), ny = Math.cos(ang), sn = ny < 0 ? -1 : 1, off = (br.xfmr ? 16 : 8) + 12 * Math.abs(nx);
+          S('text', { x: (mx + nx * off * sn).toFixed(1), y: (my + ny * off * sn + 3).toFixed(1), class: 'dg-flab' + (over ? ' over' : rev ? ' rev' : ''), 'text-anchor': 'middle' }, gLab).textContent = fx(Math.abs(pAvg), 1);
+        }
+      }
+      tip = t('tipLine', br.f, br.t, br.xfmr) + (r ? `<br><span class="m">${fx(r.Pf, 1)} MW, ${fx(r.Qf, 1)} MVAr</span> @${br.f}<br>${t('tipLd')} <span class="m">${fx(r.load, 0)}%</span> · ${t('tipLoss')} <span class="m">${fx(r.Pl, 2)} MW</span>${rev ? '<br>' + t('tipRev') : ''}` : '') + '<br>' + t('clickOut');
+      if (br.xfmr) {
+        const ux = Math.cos(ang) * 4.5, uy = Math.sin(ang) * 4.5;
+        S('circle', { cx: mx - ux, cy: my - uy, r: 6.5, class: 'dg-sym' }, gSym);
+        S('circle', { cx: mx + ux, cy: my + uy, r: 6.5, class: 'dg-sym', 'fill-opacity': 0.6 }, gSym);
+      }
+    }
+    const hit = S('path', { d, class: 'dg-hit', 'data-tip': tip, tabindex: 0, role: 'button', 'aria-label': `${br.f}–${br.t}` }, gSym);
+    const act = () => { br.on = !br.on; recompute(); };
+    hit.addEventListener('click', act);
+    hit.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } });
+  });
+
+  CASE.buses.forEach((bus, i) => {
+    const id = bus.id, [x, y] = POS[id], br = ok ? RES.buses[i] : null;
+    const g = S('g', { class: 'dg-bus' }, gBus);
+    const gen = CASE.gens.find(q => q.bus === id);
+    if (gen) {
+      const side = GENPOS[id];
+      let cx = x, cy = y, sd;
+      if (side === 'left') { cx = x - HALF - 26; sd = `M${x - HALF} ${y}H${cx + 12}`; }
+      else if (side === 'right') { cx = x + HALF + 26; sd = `M${x + HALF} ${y}H${cx - 12}`; }
+      else { cy = y + 34; sd = `M${x} ${y + 4}V${cy - 12}`; }
+      S('path', { d: sd, class: 'dg-stub' }, g);
+      S('circle', { cx, cy, r: 12, class: 'dg-sym' }, g);
+      if (gen.kind === 'gen') S('path', { d: `M${cx - 6} ${cy}c2-5 4-5 6 0s4 5 6 0`, class: 'dg-stub' }, g);
+      else S('text', { x: cx, y: cy + 4, 'text-anchor': 'middle', class: 'dg-symt' }, g).textContent = 'C';
+    }
+    if (LOADX[id] !== undefined) {
+      const lx = x + LOADX[id];
+      S('path', { d: `M${lx} ${y + 4}V${y + 17}`, class: 'dg-stub' }, g);
+      S('path', { d: `M${lx - 4.5} ${y + 16}L${lx + 4.5} ${y + 16}L${lx} ${y + 23}Z`, class: 'dg-load' }, g);
+    }
+    if (bus.Bs) {
+      const sx = x + HALF;
+      S('path', { d: `M${sx} ${y}H${sx + 11}M${sx + 11} ${y - 8}V${y + 8}M${sx + 16} ${y - 8}V${y + 8}M${sx + 16} ${y}H${sx + 24}M${sx + 24} ${y - 5}V${y + 5}M${sx + 27} ${y - 3}V${y + 3}`, class: 'dg-stub' }, g);
+    }
+    const fill = isl.has(id) ? `rgb(${C.rule.join(',')})` : br ? vColor(br.Vm) : 'var(--wire)';
+    if (SELBUS === id) S('rect', { x: x - HALF - 4, y: y - 8, width: 2 * HALF + 8, height: 16, rx: 3, class: 'dg-sel' }, g);
+    S('rect', { x: x - HALF, y: y - 4, width: 2 * HALF, height: 8, rx: 1.5, fill }, g);
+    const [dx, dy, anc] = LBL[id];
+    S('text', { x: x + dx, y: y + dy, 'text-anchor': anc, class: 'dg-num' }, g).textContent = id;
+    const bad = br && (br.Vm < CASE.vlim[0] - 1e-9 || br.Vm > CASE.vlim[1] + 1e-9);
+    S('text', { x: x + dx, y: y + dy + 13, 'text-anchor': anc, class: 'dg-v' + (bad ? ' bad' : '') }, g).textContent = br ? `${bad ? (br.Vm > 1 ? '▲ ' : '▼ ') : ''}${br.Vm.toFixed(3)} ∠${fx(br.Va, 1)}°` : '–';
+    const ty = ok ? RES.buses[i].type : bus.type;
+    let tip = t('tipBus', id, typeName(ty));
+    if (br) {
+      tip += `<br><span class="m">|V| ${br.Vm.toFixed(4)} pu · θ ${fx(br.Va, 2)}°</span>`;
+      if (REF && REF.status === 'ok') tip += `<br>${t('dv')} <span class="m">${sgn(br.Vm - REF.buses[i].Vm, 4)}</span>`;
+      if (br.Pd || br.Qd) tip += `<br>${t('tipLoad')} <span class="m">${fx(br.Pd, 1)} MW, ${fx(br.Qd, 1)} MVAr</span>`;
+      if (br.gen) tip += `<br>${br.gen.kind === 'sc' ? t('tipSC') : t('tipGen')} <span class="m">${fx(br.Pg, 1)} MW, ${fx(br.Qg, 1)} MVAr</span>`;
+      if (br.Pre) tip += `<br>${t('tipRE')} <span class="m">${fx(br.Pre, 1)} MW, ${fx(br.Qre, 1)} MVAr</span>`;
+    }
+    tip += '<br>' + t('clickBus');
+    const hb = S('rect', { x: x - HALF - 6, y: y - 14, width: 2 * HALF + 12, height: 28, class: 'hitbox', 'data-tip': tip, tabindex: 0, role: 'button', 'aria-label': `${t('bus')} ${id}` }, g);
+    const act = () => { SELBUS = id; const pl = CASE.plants.find(q => q.bus === id); if (pl) SELP = pl; renderLab(); renderTheory(); };
+    hb.addEventListener('click', act);
+    hb.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } });
+  });
+
+  // Plants: a stub from the bus bar, a disc with the icon, and the current output.
+  CASE.plants.forEach(p => {
+    const pos = PLANTPOS[p.bus];
+    if (!pos) return;
+    const [cx, cy] = pos[p.type === 'wind' ? 0 : 1], [x, y] = POS[p.bus];
+    const out = ok ? RES.plants.find(q => q.p === p) : null;
+    const px = clamp(cx, x - HALF + 2, x + HALF - 2), py = cy > y ? y + 4 : y - 4;
+    const ang = Math.atan2(py - cy, px - cx);
+    S('line', { x1: px, y1: py, x2: (cx + 15 * Math.cos(ang)).toFixed(1), y2: (cy + 15 * Math.sin(ang)).toFixed(1), class: 'dg-pstub' }, gPlant);
+    const g = S('g', { class: `dg-plant ${p.type}${SELP === p ? ' sel' : ''}`, tabindex: 0, role: 'button', 'aria-label': `${p.type === 'wind' ? t('wind') : t('solar')} ${t('bus')} ${p.bus}` }, gIcon);
+    S('circle', { cx, cy, r: 15, class: 'disc' }, g);
+    if (p.type === 'wind') {
+      S('line', { x1: cx, y1: cy, x2: cx, y2: cy + 11, class: 'tower' }, g);
+      const rot = S('g', { class: 'rotor' }, g);
+      rot.style.transformOrigin = `${cx}px ${cy - 1}px`;
+      for (const a of [-90, 30, 150]) {
+        const rd = a * Math.PI / 180;
+        S('line', { x1: cx, y1: cy - 1, x2: (cx + 10 * Math.cos(rd)).toFixed(1), y2: (cy - 1 + 10 * Math.sin(rd)).toFixed(1), class: 'blade' }, rot);
+      }
+      if (!out || out.o.P <= 0.01) rot.style.animation = 'none';
+      else rot.style.animationDuration = clamp(5 - 4 * out.o.P / Math.max(1, out.o.Prated), 0.8, 5).toFixed(2) + 's';
+    } else {
+      S('rect', { x: cx - 9, y: cy - 7, width: 18, height: 14, rx: 1, class: 'cell' }, g);
+      S('path', { d: `M${cx - 3} ${cy - 7}V${cy + 7}M${cx + 3} ${cy - 7}V${cy + 7}M${cx - 9} ${cy}H${cx + 9}`, class: 'lines' }, g);
+    }
+    S('text', { x: cx, y: cy > y ? cy + 27 : cy - 20, 'text-anchor': 'middle', class: 'dg-pl' }, g).textContent = out ? `${fx(out.o.P, 0)} MW` : '–';
+    const tip = `<b>${p.type === 'wind' ? t('wind') : t('solar')} · ${t('atBus', p.bus)}</b>` + (out ? `<br><span class="m">${fx(out.o.P, 1)} MW, ${fx(out.Qinj, 1)} MVAr</span>` : '') + '<br>' + t('clickPl');
+    S('circle', { cx, cy, r: 15, fill: 'transparent', 'data-tip': tip }, g);
+    const act = () => { SELP = p; SELBUS = p.bus; renderLab(); renderTheory(); };
+    g.addEventListener('click', act);
+    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } });
+  });
+}
+
+function renderLegend() {
+  $('#legend').innerHTML = `<span class="vbar"><b>0.94</b><i></i><b>1.10</b></span><span>${t('lgV')}</span>
+    <span><svg width="34" height="10" aria-hidden="true"><path d="M2 5H32" stroke="var(--wire)" stroke-width="4"/><path d="M2 5H32" stroke="var(--flow)" stroke-width="2" stroke-dasharray="2 6"/></svg>${t('lgFlow')}</span>
+    <span><svg width="34" height="10" aria-hidden="true"><path d="M2 5H32" stroke="var(--wire)" stroke-width="4"/><path d="M2 5H32" stroke="var(--rev)" stroke-width="2" stroke-dasharray="2 6"/></svg>${t('lgRev')}</span>
+    <span><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="var(--panel)" stroke="var(--wind)" stroke-width="1.8"/><path d="M10 10V3M10 10L4 13.5M10 10L16 13.5" stroke="var(--wind)" stroke-width="2" stroke-linecap="round"/></svg>${t('lgW')}</span>
+    <span><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="var(--panel)" stroke="var(--sun)" stroke-width="1.8"/><rect x="4.5" y="6" width="11" height="8" rx="1" fill="var(--sun)"/></svg>${t('lgS')}</span>
+    <span><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8" class="dg-sym"/><path d="M5 10c1.7-4 3.3-4 5 0s3.3 4 5 0" class="dg-stub"/></svg>${t('lgGen')}</span>
+    <span><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8" class="dg-sym"/><text x="10" y="14" text-anchor="middle" class="dg-symt">C</text></svg>${t('lgSC')}</span>
+    <span><svg width="12" height="20" aria-hidden="true"><path d="M6 2V12" class="dg-stub"/><path d="M1.5 11H10.5L6 18Z" class="dg-load"/></svg>${t('lgLoad')}</span>
+    <span><svg width="24" height="16" aria-hidden="true"><circle cx="9" cy="8" r="6" class="dg-sym"/><circle cx="15" cy="8" r="6" class="dg-sym" fill-opacity=".6"/></svg>${t('lgX')}</span>`;
+}
+
+/* ---------- lab panels ---------- */
+function renderStatus() {
+  const bar = $('#statusbar'), al = $('#alerts');
+  const cell = (k, v, s) => `<div><dt>${k}</dt><dd>${v}<small>${s || '&nbsp;'}</small></dd></div>`;
+  if (RES.status !== 'ok') {
+    const msg = RES.status === 'islanded' ? t('isl', RES.islanded.join(', ')) : RES.singular ? t('singular') : t('fail');
+    bar.innerHTML = ['stRE', 'stSlack', 'stLoss', 'stV', 'stLoad', 'stNR'].map(k => cell(t(k), '–')).join('');
+    al.innerHTML = `<span class="alert crit"><b>✕</b>${msg}</span>`;
+    return;
+  }
+  const X = RES.totals;
+  const share = X.Pd > 0 ? fx(100 * X.Pre / X.Pd, 0) : '0';
+  const lossRef = REF && REF.status === 'ok' ? t('stNoRE', fx(REF.totals.Pl, 2)) : '';
+  const mb = X.maxLoad ? brName(CASE.branches[X.maxLoad.j]) : '–';
+  bar.innerHTML = cell(t('stRE'), `${fx(X.Pre, 1)} MW`, t('stShare', share)) +
+    cell(t('stSlack'), `${fx(X.Pslack, 1)} MW`, t('atBus', 1)) +
+    cell(t('stLoss'), `${fx(X.Pl, 2)} MW`, lossRef) +
+    cell(t('stV'), `${X.vmin.Vm.toFixed(3)}–${X.vmax.Vm.toFixed(3)}`, `${t('atBus', X.vmin.id)} · ${t('atBus', X.vmax.id)}`) +
+    cell(t('stLoad'), X.maxLoad ? `${fx(X.maxLoad.load, 0)}%` : '–', t('stBr', mb)) +
+    cell(t('stNR'), t('stIter', RES.total), `max |Δ| ${RES.seq[RES.seq.length - 1].toExponential(0).replace('-', '−')} pu`);
+  const items = [];
+  if (X.Vlow.length) items.push(['crit', '▼', t('low', X.Vlow.join(', '))]);
+  if (X.Vhigh.length) items.push(['crit', '▲', t('high', X.Vhigh.join(', '))]);
+  if (X.over.length) items.push(['crit', '!', t('over', X.over.map(j => brName(CASE.branches[j])).join(', '))]);
+  if (X.Pslack < -0.05) items.push(['warn', '!', t('slackNeg', fx(-X.Pslack, 1))]);
+  const revs = CASE.branches.map((b, j) => (isRev(j) ? brName(b) : null)).filter(Boolean);
+  if (revs.length) items.push(['rev', '⇄', t('rev', revs.length, revs.join(', '))]);
+  if (X.clipped > 0.05) items.push(['', '✂', t('clip', fx(X.clipped, 1))]);
+  if (X.curtailed > 0.05) items.push(['', '✂', t('curt', fx(X.curtailed, 1))]);
+  const cl = RES.buses.filter(b => b.clamp).map(b => t('atBus', b.id));
+  if (cl.length) items.push(['warn', 'Q', t('qClamp', cl.join(', '))]);
+  const ig = RES.plants.filter(q => q.ignoredV).map(q => t('atBus', q.p.bus));
+  if (ig.length) items.push(['warn', 'V', t('ignoredV', ig.join(', '))]);
+  if (!X.Vlow.length && !X.Vhigh.length && !X.over.length) items.unshift(['good', '✓', t('okAll')]);
+  al.innerHTML = items.map(([c, ic, m]) => `<span class="alert ${c}"><b>${ic}</b><span>${m}</span></span>`).join('');
+}
+
+function buildMatrix() {
+  let h = `<thead><tr><th></th>${CASE.buses.map(b => `<th>${b.id}</th>`).join('')}</tr></thead><tbody>`;
+  for (const [ty, rowClass] of [['wind', ''], ['pv', 'sun']]) {
+    h += `<tr class="${rowClass}"><td id="mxh-${ty}"></td>` + CASE.buses.map(b => `<td><input type="checkbox" id="mx-${ty}-${b.id}" data-type="${ty}" data-bus="${b.id}" aria-label="${ty} ${b.id}"${b.id === PF.NO_PLANT_BUS ? ' disabled' : ''}></td>`).join('') + '</tr>';
+  }
+  const m = $('#matrix');
+  m.innerHTML = h + '</tbody>';
+  m.addEventListener('change', e => {
+    const c = e.target, ty = c.dataset.type, bus = +c.dataset.bus;
+    if (c.checked) {
+      const p = PF.newPlant(ty, bus);
+      CASE.plants.push(p); SELP = p; SELBUS = bus;
+    } else {
+      const i = CASE.plants.findIndex(q => q.type === ty && q.bus === bus);
+      if (i >= 0) { if (SELP === CASE.plants[i]) SELP = null; CASE.plants.splice(i, 1); }
+      if (!SELP) SELP = CASE.plants[0] || null;
+    }
+    PRESET = null;
+    recompute();
+  });
+}
+
+function capacity(p) { return p.type === 'wind' ? p.N * p.Pt : p.Pdc; }
+
+function renderPlantPanels() {
+  $('#mxh-wind').textContent = t('mxW'); $('#mxh-pv').textContent = t('mxS');
+  document.querySelectorAll('#matrix input').forEach(c => { c.checked = CASE.plants.some(q => q.type === c.dataset.type && q.bus === +c.dataset.bus); });
+  document.querySelectorAll('[data-preset]').forEach(b => b.setAttribute('aria-pressed', b.dataset.preset === PRESET));
+
+  const lst = $('#plantList');
+  const active = document.activeElement && document.activeElement.classList.contains('pl-sel') ? document.activeElement.id : null;
+  if (!CASE.plants.length) lst.innerHTML = `<tbody><tr><td class="msg">${t('noPl')}</td></tr></tbody>`;
+  else {
+    lst.innerHTML = `<thead><tr><th>${t('plType')}</th><th class="r">${t('plSize')}</th><th class="r">${t('plP')}</th><th class="r">${t('plQ')}</th><th>${t('plMode')}</th><th></th></tr></thead><tbody>` +
+      CASE.plants.map((p, i) => {
+        const o = RES.status === 'ok' ? RES.plants.find(q => q.p === p) : null;
+        return `<tr class="${SELP === p ? 'sel' : ''}"><td><span class="dot" style="background:var(--${p.type === 'wind' ? 'wind' : 'sun'})"></span>${p.type === 'wind' ? t('windS') : t('solarS')} · ${t('atBus', p.bus)}</td><td class="r">${fx(capacity(p), 0)} ${p.type === 'wind' ? 'MW' : 'MWp'}</td><td class="r">${o ? fx(o.o.P, 1) : '–'}</td><td class="r">${o ? fx(o.Qinj, 1) : '–'}</td><td>${t('mode')[p.mode]}</td><td><button type="button" class="pl-sel" id="plsel-${p.type}-${p.bus}" data-i="${i}">${t('edit')}</button></td></tr>`;
+      }).join('') + '</tbody>';
+    lst.querySelectorAll('.pl-sel').forEach(b => b.addEventListener('click', () => { SELP = CASE.plants[+b.dataset.i]; SELBUS = SELP.bus; renderLab(); renderTheory(); }));
+    if (active && document.getElementById(active)) document.getElementById(active).focus();
+  }
+
+  // bus card
+  const setv = (id, v) => { const el = $(id); if (document.activeElement !== el) el.value = v; };
+  const fields = $('#bcFields');
+  if (!SELBUS) { $('#bcTitle').textContent = t('bcNone'); $('#bcHint').textContent = t('bcHint'); fields.hidden = true; }
+  else {
+    const b = CASE.buses[SELBUS - 1], g = CASE.gens.find(q => q.bus === SELBUS);
+    $('#bcTitle').textContent = t('bcTitle', SELBUS);
+    $('#bcHint').textContent = SELBUS === PF.NO_PLANT_BUS ? t('bc7') : b.type === 3 ? t('bcSlack') : b.type === 2 ? t('bcPV', g.kind) : t('bcPQ');
+    fields.hidden = SELBUS === PF.NO_PLANT_BUS;
+    $('#bcPdL').hidden = b.type === 3; $('#bcQdL').hidden = b.type === 3;
+    $('#bcPgL').hidden = !(g && b.type === 2 && g.kind === 'gen'); $('#bcVgL').hidden = !g;
+    setv('#bcPd', b.Pd); setv('#bcQd', b.Qd);
+    if (g) { setv('#bcPg', g.Pg); setv('#bcVg', g.Vg); }
+  }
+
+  // plant editor
+  const p = SELP, ed = $('#editor');
+  ed.hidden = !p; $('#editorEmpty').hidden = !!p; $('#edBtns').hidden = !p;
+  if (!p) { $('#edTitle').textContent = t('edNone'); return; }
+  $('#edTitle').textContent = p.type === 'wind' ? t('edWind', p.bus) : t('edSolar', p.bus);
+  $('#edCopy').textContent = p.type === 'wind' ? t('copyW') : t('copyS');
+  $('#fWind').hidden = p.type !== 'wind'; $('#fPv').hidden = p.type !== 'pv';
+  ed.querySelectorAll('input[data-k]').forEach(i => {
+    if (i.closest('[hidden]') && i.id !== 'fCap') return;
+    if (document.activeElement !== i) i.value = p[i.dataset.k];
+  });
+  $('#fCapO').textContent = p.cap + '%';
+  document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === p.mode));
+  $('#fPfBox').hidden = p.mode !== 'pf'; $('#fVBox').hidden = p.mode !== 'v'; $('#fQvBox').hidden = p.mode !== 'qv';
+  const sign = $('#fSign'); sign.options[0].textContent = t('absorb'); sign.options[1].textContent = t('inject'); sign.value = String(p.pfSign);
+  const o = RES.status === 'ok' ? RES.plants.find(q => q.p === p) : null;
+  const a = PF.plantOutput(p, CASE.weather, 1);
+  const rd = (k, v) => `<div>${t(k)}<b>${v}</b></div>`;
+  let h = rd('rdAvail', `${fx(a.avail, 1)} MW`) + rd('rdP', `${fx(a.P, 1)} MW`) + rd('rdQ', o ? `${fx(o.Qinj, 1)} MVAr` : '–') + rd('rdS', `${fx(a.S, 1)} MVA`) + rd('rdCap', `±${fx(a.Qcap, 1)}`) + rd('rdV', o ? RES.buses[p.bus - 1].Vm.toFixed(3) : '–');
+  if (a.clipped > 0.05) h += rd('rdClip', `${fx(a.clipped, 1)} MW`);
+  if (a.curtailed > 0.05) h += rd('rdCurt', `${fx(a.curtailed, 1)} MW`);
+  if (p.type === 'pv') h += rd('rdTc', `${fx(a.Tc, 1)} °C`);
+  $('#edRead').innerHTML = h;
+  let note = '';
+  if (p.type === 'wind' && !(p.vci < p.vr && p.vr < p.vco)) note = t('badWind');
+  else if (o && o.ignoredV) note = t('noteIgnored');
+  else if (o && o.clamped) note = t('noteClamped');
+  else if (o && o.sat) note = t('noteSat');
+  else if (a.P > 0.97 * a.S) note = t('noteFull');
+  $('#edNote').textContent = note;
+}
+
+function renderTables() {
+  const bt = $('#busTbl'), brt = $('#brTbl');
+  bt.innerHTML = `<thead><tr><th>${t('bus')}</th><th>${t('thType')}</th><th class="r">${t('thV')}</th><th class="r">${t('thDV')}</th><th class="r">${t('thA')}</th><th class="r">${t('thRe')}</th><th class="r">${t('thQre')}</th><th class="r">${t('thPg')}</th><th class="r">${t('thQg')}</th><th class="r">${t('thPd')}</th><th class="r">${t('thQd')}</th></tr></thead>`;
+  brt.innerHTML = `<thead><tr><th>${t('branch')}</th><th class="r">${t('thPf')}</th><th class="r">${t('thQf')}</th><th class="r">${t('thS')}</th><th class="r">${t('thRate')}</th><th class="r">${t('thLd')}</th><th class="r">${t('thLoss')}</th></tr></thead>`;
+  if (RES.status !== 'ok') {
+    bt.innerHTML += `<tbody><tr><td colspan="11" class="msg">${t('noRes')}</td></tr></tbody>`;
+    brt.innerHTML += `<tbody><tr><td colspan="7" class="msg">${t('noRes')}</td></tr></tbody>`;
+    return;
+  }
+  const refOk = REF && REF.status === 'ok';
+  bt.innerHTML += '<tbody>' + RES.buses.map((b, i) => {
+    const flag = b.Vm < CASE.vlim[0] - 1e-9 ? ' <span class="flag">▼</span>' : b.Vm > CASE.vlim[1] + 1e-9 ? ' <span class="flag">▲</span>' : '';
+    const chip = b.clamp ? '<span class="chip lim">PV→PQ</span>' : b.vctrl ? '<span class="chip re">PV</span>' : `<span class="chip ${b.type === 3 ? 'slack' : b.type === 2 ? 'pv' : ''}">${typeName(b.type)}</span>`;
+    const blank = (c, v, d) => (c ? fx(v, d) : '');
+    return `<tr class="${SELBUS === b.id ? 'sel' : ''}"><td>${b.id}</td><td>${chip}</td><td class="r">${b.Vm.toFixed(3)}${flag}</td><td class="r">${refOk ? sgn(b.Vm - REF.buses[i].Vm, 3) : ''}</td><td class="r">${fx(b.Va, 2)}</td><td class="r">${blank(b.Pre, b.Pre, 1)}</td><td class="r">${blank(b.Pre || b.Qre, b.Qre, 1)}</td><td class="r">${blank(b.gen, b.Pg, 1)}</td><td class="r">${blank(b.gen, b.Qg, 1)}</td><td class="r">${blank(b.Pd || b.Qd, b.Pd, 1)}</td><td class="r">${blank(b.Pd || b.Qd, b.Qd, 1)}</td></tr>`;
+  }).join('') + '</tbody>';
+  brt.innerHTML += '<tbody>' + CASE.branches.map((b, j) => {
+    const r = RES.branches[j];
+    if (!r.on) return `<tr class="off"><td>${brName(b)}</td><td colspan="6">${t('off')}</td></tr>`;
+    return `<tr><td>${brName(b)}${b.xfmr ? ' <span class="chip">T</span>' : ''}${isRev(j) ? ' <span class="rev">⇄</span>' : ''}</td><td class="r">${fx(r.Pf, 1)}</td><td class="r">${fx(r.Qf, 1)}</td><td class="r">${fx(r.Smax, 1)}</td><td class="r">${r.rating}</td><td class="r">${fx(r.load, 0)}${r.load > 100 ? ' <span class="flag">!</span>' : ''}</td><td class="r">${fx(r.Pl, 2)}</td></tr>`;
+  }).join('') + '</tbody>';
+}
+
+/* ---------- chart helpers ---------- */
+function ticks(a, b, n) {
+  const raw = (b - a) / Math.max(1, n), mag = Math.pow(10, Math.floor(Math.log10(raw))), norm = raw / mag;
+  const st = (norm <= 1 + 1e-9 ? 1 : norm <= 2 + 1e-9 ? 2 : norm <= 5 + 1e-9 ? 5 : 10) * mag;
+  const out = [];
+  for (let v = Math.ceil(a / st - 1e-9) * st; v <= b + 1e-9; v += st) out.push(Math.round(v / st) * st);
+  return out;
+}
+function axes(svg, o) {
+  svg.textContent = '';
+  const { L, R, T: Top, B, x, y } = o;
+  const sx = v => L + (R - L) * (v - x[0]) / (x[1] - x[0]), sy = v => B - (B - Top) * (v - y[0]) / (y[1] - y[0]);
+  const yf = o.yf || (v => fx(v, 0)), xf = o.xf || (v => fx(v, 0));
+  (o.yt || ticks(y[0], y[1], 4)).forEach(v => {
+    S('line', { x1: L, x2: R, y1: sy(v), y2: sy(v), class: 'gl' }, svg);
+    S('text', { x: L - 6, y: sy(v) + 4, 'text-anchor': 'end', class: 'ax' }, svg).textContent = yf(v);
+  });
+  S('line', { x1: L, x2: R, y1: B, y2: B, class: 'base' }, svg);
+  (o.xt || ticks(x[0], x[1], 6)).forEach(v => { S('text', { x: sx(v), y: B + 15, 'text-anchor': 'middle', class: 'ax' }, svg).textContent = xf(v); });
+  if (o.xl) S('text', { x: (L + R) / 2, y: B + 32, 'text-anchor': 'middle', class: 'axl' }, svg).textContent = o.xl;
+  return { sx, sy };
+}
+const lineD = (pts) => {
+  let d = '', pen = false;
+  for (const p of pts) { if (!p) { pen = false; continue; } d += (pen ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); pen = true; }
+  return d;
+};
+function crosshair(svg, o, xs, sx, html, onPick) {
+  const cross = S('line', { y1: o.T, y2: o.B, stroke: 'var(--ink-2)', 'stroke-width': 1, visibility: 'hidden' }, svg);
+  const ov = S('rect', { x: o.L, y: o.T, width: o.R - o.L, height: o.B - o.T, fill: 'transparent' }, svg);
+  const nearest = ev => {
+    const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    let bi = 0, bd = Infinity;
+    xs.forEach((x, i) => { const d = Math.abs(sx(x) - p.x); if (d < bd) { bd = d; bi = i; } });
+    return bi;
+  };
+  const show = ev => {
+    const i = nearest(ev);
+    cross.setAttribute('x1', sx(xs[i])); cross.setAttribute('x2', sx(xs[i])); cross.setAttribute('visibility', 'visible');
+    showTip(html(i), ev.clientX, ev.clientY);
+  };
+  ov.addEventListener('pointermove', show);
+  ov.addEventListener('pointerdown', show);
+  if (onPick) { ov.addEventListener('click', ev => onPick(nearest(ev))); ov.style.cursor = 'pointer'; }
+  ov.addEventListener('pointerleave', () => { cross.setAttribute('visibility', 'hidden'); hideTip(); });
+}
+
+/* ---------- lab charts ---------- */
+function renderLabCharts() {
+  const v = $('#vChart'), l = $('#lChart');
+  if (RES.status !== 'ok') { v.textContent = ''; l.textContent = ''; return; }
+  const refOk = REF && REF.status === 'ok', vs = RES.buses.map(b => b.Vm).concat(refOk ? REF.buses.map(b => b.Vm) : [], CASE.vlim);
+  const o = { L: 44, R: 552, T: 8, B: 200, x: [0.5, 14.5], y: [Math.floor(Math.min(...vs) * 50 - 0.2) / 50, Math.ceil(Math.max(...vs) * 50 + 0.2) / 50], xt: RES.buses.map(b => b.id), xl: t('axBus'), yf: q => q.toFixed(2) };
+  const { sx, sy } = axes(v, o);
+  CASE.vlim.forEach(q => S('line', { x1: o.L, x2: o.R, y1: sy(q), y2: sy(q), class: 'tol' }, v));
+  if (refOk) {
+    S('path', { d: lineD(REF.buses.map(b => [sx(b.id), sy(b.Vm)])), fill: 'none', stroke: 'var(--muted)', 'stroke-width': 2, 'stroke-linejoin': 'round' }, v);
+    REF.buses.forEach(b => S('circle', { cx: sx(b.id), cy: sy(b.Vm), r: 3.5, fill: 'var(--muted)', stroke: 'var(--panel)', 'stroke-width': 1.5 }, v));
+  }
+  S('path', { d: lineD(RES.buses.map(b => [sx(b.id), sy(b.Vm)])), fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2, 'stroke-linejoin': 'round' }, v);
+  RES.buses.forEach((b, i) => {
+    const bad = b.Vm < CASE.vlim[0] - 1e-9 || b.Vm > CASE.vlim[1] + 1e-9;
+    S('circle', { cx: sx(b.id), cy: sy(b.Vm), r: bad ? 5 : 4, fill: bad ? 'var(--crit)' : 'var(--accent)', stroke: 'var(--panel)', 'stroke-width': 1.5 }, v);
+    S('rect', { x: sx(b.id) - 18, y: o.T, width: 36, height: o.B - o.T, fill: 'transparent', 'data-tip': t('tipV', b.id, b.Vm.toFixed(4), refOk ? REF.buses[i].Vm.toFixed(4) : '–') }, v);
+  });
+
+  const lds = RES.branches.map(b => (b.on ? b.load : 0)), maxL = Math.max(120, ...lds);
+  const lo = { L: 36, R: 552, T: 14, B: 196, x: [0, 20], y: [0, Math.ceil(maxL / 20) * 20], xt: [], yf: q => q + '%', yt: ticks(0, Math.ceil(maxL / 20) * 20, 4) };
+  const sc = axes(l, lo), bw = (lo.R - lo.L) / 20;
+  S('line', { x1: lo.L, x2: lo.R, y1: sc.sy(100), y2: sc.sy(100), class: 'tol' }, l);
+  CASE.branches.forEach((b, j) => {
+    const r = RES.branches[j], x = lo.L + j * bw;
+    const lab = S('text', { x: x + bw / 2, y: lo.B + 12, 'text-anchor': 'end', class: 'ax', transform: `rotate(-40 ${x + bw / 2} ${lo.B + 12})` }, l); lab.textContent = brName(b); lab.style.fontSize = '9.5px';
+    if (r.on) {
+      const yy = sc.sy(r.load);
+      S('rect', { x: x + bw * 0.16, y: yy, width: bw * 0.68, height: Math.max(0, lo.B - yy), rx: 2, fill: r.load > 100 ? 'var(--crit)' : 'var(--conv)' }, l);
+      if (refOk && REF.branches[j].on) { const q = sc.sy(REF.branches[j].load); S('line', { x1: x + bw * 0.08, x2: x + bw * 0.92, y1: q, y2: q, stroke: 'var(--ink)', 'stroke-width': 2 }, l); }
+      if (isRev(j)) { const tx = S('text', { x: x + bw / 2, y: yy - 4, 'text-anchor': 'middle', class: 'rev' }, l); tx.textContent = '⇄'; tx.style.fontSize = '11px'; tx.style.fill = 'var(--rev)'; }
+    } else { const tx = S('text', { x: x + bw / 2, y: lo.B - 4, 'text-anchor': 'middle', class: 'ax' }, l); tx.textContent = '×'; }
+    if (r.on) S('rect', { x, y: lo.T, width: bw, height: lo.B - lo.T, fill: 'transparent', 'data-tip': t('tipBr', brName(b), fx(r.load, 0), refOk && REF.branches[j].on ? fx(REF.branches[j].load, 0) : '–', fx(r.Smax, 1), r.rating) }, l);
+  });
+}
+
+/* ---------- theory charts ---------- */
+const pick = ty => (SELP && SELP.type === ty ? SELP : CASE.plants.find(q => q.type === ty)) || null;
+function renderTheory() {
+  // wind curve
+  const wp = pick('wind'), w = wp || PF.newPlant('wind', 14), vNow = CASE.weather.v * w.site / 100;
+  const Pr = w.N * w.Pt, eta = w.avail / 100, Pcur = v => Pr * PF.windPU(w, v) * eta;
+  $('#wTitle').textContent = wp ? t('wTitle', wp.bus) : t('wEx');
+  const a = PF.plantOutput(w, CASE.weather, 1);
+  $('#wSub').textContent = t('wSub', fx(vNow, 1), fx(a.P, 1), fx(Pr, 0));
+  const svg = $('#wChart'), yMax = Math.max(1, Pr);
+  const o = { L: 46, R: 884, T: 22, B: 205, x: [0, 30], y: [0, yMax * 1.08], xl: t('axV'), xt: ticks(0, 30, 10), yt: ticks(0, yMax * 1.08, 4) };
+  const { sx, sy } = axes(svg, o);
+  const xs = []; for (let v = 0; v <= 30; v += 0.05) xs.push(v);
+  // step ends drawn explicitly so the jumps at cut-out are vertical
+  S('path', { d: lineD(xs.map(v => [sx(v), sy(Pcur(v))])), fill: 'none', stroke: 'var(--wind)', 'stroke-width': 2.2, 'stroke-linejoin': 'round' }, svg);
+  [['cutin', w.vci], ['rated', w.vr], ['cutout', w.vco]].forEach(([k, v]) => {
+    S('line', { x1: sx(v), x2: sx(v), y1: o.T, y2: o.B, class: 'tol' }, svg);
+    S('text', { x: sx(v), y: o.T - 8, 'text-anchor': 'middle', class: 'lab' }, svg).textContent = `${t(k)} ${v}`;
+  });
+  const pNow = clamp(vNow, 0, 30);
+  S('circle', { cx: sx(pNow), cy: sy(Pcur(vNow)), r: 6, fill: 'var(--wind)', stroke: 'var(--panel)', 'stroke-width': 2 }, svg);
+  crosshair(svg, o, xs.filter((_, i) => i % 10 === 0), sx, i => { const v = i * 0.5; return `<span class="m">${v} m/s → ${fx(Pcur(v), 1)} MW</span>`; });
+
+  // solar curve
+  const sp = pick('pv'), s = sp || PF.newPlant('pv', 4), Ta = CASE.weather.Ta;
+  $('#sTitle').textContent = sp ? t('sTitle', sp.bus) : t('sEx');
+  const sNow = PF.plantOutput(s, CASE.weather, 1);
+  const dcPct = 100 * (s.gamma / 100) * (sNow.Tc - 25);
+  $('#sSub').textContent = t('sSub', fx(Ta, 0), fx(sNow.Tc, 1), sgn(dcPct, 1));
+  const ss = $('#sChart'), Gs = []; for (let G = 0; G <= 1100; G += 10) Gs.push(G);
+  const rows = Gs.map(G => PF.plantOutput(s, { v: 0, G: G / (s.site / 100), Ta }, 1));
+  const y2 = Math.max(1, sNow.S, ...rows.map(r => r.avail)) * 1.08;
+  const so = { L: 46, R: 884, T: 12, B: 205, x: [0, 1100], y: [0, y2], xl: t('axG'), xt: ticks(0, 1100, 11), yt: ticks(0, y2, 4) };
+  const sc = axes(ss, so);
+  S('line', { x1: so.L, x2: so.R, y1: sc.sy(sNow.S), y2: sc.sy(sNow.S), class: 'tol' }, ss);
+  S('text', { x: so.L + 6, y: sc.sy(sNow.S) - 6, class: 'lab' }, ss).textContent = `S = ${fx(sNow.S, 1)} MVA`;
+  S('path', { d: lineD(Gs.map((G, i) => [sc.sx(G), sc.sy(rows[i].avail)])), fill: 'none', stroke: 'var(--muted)', 'stroke-width': 2, 'stroke-dasharray': '5 4' }, ss);
+  S('path', { d: lineD(Gs.map((G, i) => [sc.sx(G), sc.sy(rows[i].avail > rows[i].S ? rows[i].S : rows[i].avail)])), fill: 'none', stroke: 'var(--sun)', 'stroke-width': 2.2 }, ss);
+  const gNow = CASE.weather.G * s.site / 100;
+  S('circle', { cx: sc.sx(clamp(gNow, 0, 1100)), cy: sc.sy(Math.min(sNow.avail, sNow.S)), r: 6, fill: 'var(--sun)', stroke: 'var(--panel)', 'stroke-width': 2 }, ss);
+  crosshair(ss, so, Gs, sc.sx, i => `<span class="m">${Gs[i]} W/m² → ${fx(Math.min(rows[i].avail, rows[i].S), 1)} MW</span>`);
+
+  // capability circle
+  const cp = SELP || CASE.plants[0] || null, cw = cp || PF.newPlant('pv', 4);
+  const cout = PF.plantOutput(cw, CASE.weather, 1), lv = cp && RES.status === 'ok' ? RES.plants.find(q => q.p === cp) : null;
+  const tyName = cw.type === 'wind' ? t('pwind') : t('psolar');
+  $('#cTitle').textContent = cp ? t('cTitle', tyName, cp.bus) : t('cEx');
+  $('#cSub').textContent = t('cSub', fx(cout.S, 1), fx(cout.Qcap, 1));
+  const cs = $('#cChart'), Sr = Math.max(1, cout.S) * 1.1;
+  const co = { L: 40, R: 430, T: 8, B: 230, x: [-Sr, Sr], y: [0, Sr], xl: t('axQ'), xt: ticks(-Sr, Sr, 6), yt: ticks(0, Sr, 4) };
+  const c2 = axes(cs, co);
+  const arc = []; for (let d = 0; d <= 180; d += 3) arc.push([c2.sx(cout.S * Math.cos(d * Math.PI / 180)), c2.sy(cout.S * Math.sin(d * Math.PI / 180))]);
+  S('path', { d: lineD(arc) + 'Z', fill: 'var(--code)', stroke: 'var(--accent)', 'stroke-width': 2 }, cs);
+  S('line', { x1: c2.sx(0), x2: c2.sx(0), y1: co.T, y2: co.B, class: 'base' }, cs);
+  S('line', { x1: c2.sx(-cout.Qcap), x2: c2.sx(cout.Qcap), y1: c2.sy(cout.P), y2: c2.sy(cout.P), class: 'tol' }, cs);
+  const qNow = lv ? lv.Qinj : 0;
+  S('circle', { cx: c2.sx(qNow), cy: c2.sy(cout.P), r: 6, fill: 'var(--accent)', stroke: 'var(--panel)', 'stroke-width': 2, 'data-tip': `<span class="m">P ${fx(cout.P, 1)} MW, Q ${fx(qNow, 1)} MVAr</span>` }, cs);
+  S('text', { x: c2.sx(qNow) + 10, y: c2.sy(cout.P) - 8, class: 'lab' }, cs).textContent = t('here');
+
+  // droop
+  const ds = $('#dChart');
+  $('#dTitle').textContent = cp ? t('dTitle', tyName, cp.bus) : t('dEx');
+  const on = lv && cw.mode === 'qv';
+  $('#dSub').textContent = t('dSub', cw.Vref.toFixed(3), cw.droop, !!on);
+  const Qr = Math.max(1, cout.S) * 1.1, Vmn = cw.Vref - 0.12, Vmx = cw.Vref + 0.12;
+  const dO = { L: 44, R: 430, T: 8, B: 230, x: [Vmn, Vmx], y: [-Qr, Qr], xl: t('axVm'), xf: q => q.toFixed(2), xt: ticks(Vmn, Vmx, 5), yt: ticks(-Qr, Qr, 4) };
+  const dd = axes(ds, dO), Vs = []; for (let v = Vmn; v <= Vmx + 1e-9; v += 0.002) Vs.push(v);
+  S('line', { x1: dd.sx(cw.Vref), x2: dd.sx(cw.Vref), y1: dO.T, y2: dO.B, class: 'tol' }, ds);
+  S('line', { x1: dO.L, x2: dO.R, y1: dd.sy(0), y2: dd.sy(0), class: 'base' }, ds);
+  S('path', { d: lineD(Vs.map(v => [dd.sx(v), dd.sy(PF.droopQ(cw, cout, v).q)])), fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2.2 }, ds);
+  if (on) {
+    const v = RES.buses[cw.bus - 1].Vm;
+    S('circle', { cx: dd.sx(clamp(v, Vmn, Vmx)), cy: dd.sy(lv.Qinj), r: 6, fill: 'var(--accent)', stroke: 'var(--panel)', 'stroke-width': 2, 'data-tip': `<span class="m">|V| ${v.toFixed(4)} pu, Q ${fx(lv.Qinj, 1)} MVAr</span>` }, ds);
+  }
+  crosshair(ds, dO, Vs, dd.sx, i => `<span class="m">|V| ${Vs[i].toFixed(3)} → ${fx(PF.droopQ(cw, cout, Vs[i]).q, 1)} MVAr</span>`);
+}
+
+/* ---------- sweep ---------- */
+function renderSweep() {
+  const msg = $('#swMsg'), ids = ['#sw1', '#sw2', '#sw3'];
+  ids.forEach(i => { $(i).textContent = ''; });
+  if (!CASE.plants.length) { msg.textContent = t('swNone'); return; }
+  const c = Object.assign({}, CASE), rows = [];
+  for (let k = 0; k <= 30; k++) { c.reScale = k / 10; const r = PF.solve(c); rows.push(r.status === 'ok' ? { k, re: r.totals.Pre, L: r.totals.Pl, vmin: r.totals.vmin.Vm, vmax: r.totals.vmax.Vm, ml: r.totals.maxLoad.load, r } : { k, fail: true }); }
+  const good = rows.filter(r => !r.fail);
+  if (!good.length) { msg.textContent = t('noRes'); return; }
+  const first = good.find(r => r.r.totals.Vlow.length || r.r.totals.Vhigh.length || r.r.totals.over.length);
+  const firstFail = rows.find(r => r.fail);
+  let text;
+  if (first && first.k === 0) text = t('swAtZero');
+  else if (first) {
+    const X = first.r.totals, wh = [];
+    if (X.Vhigh.length || X.Vlow.length) wh.push(t('whyV', X.Vhigh.concat(X.Vlow).join(', ')));
+    if (X.over.length) wh.push(t('whyL', X.over.map(j => brName(CASE.branches[j])).join(', ')));
+    text = t('swHit', fx(first.re, 0), first.k * 10, wh.join(LANG === 'zh' ? '，' : ', '));
+  } else if (firstFail) text = t('swFail', firstFail.k * 10);
+  else text = t('swOk', fx(good[good.length - 1].re, 0));
+  let mn = good[0]; good.forEach(r => { if (r.L < mn.L) mn = r; });
+  msg.textContent = text + ' ' + t('minLoss', fx(mn.re, 0), fx(mn.L, 2));
+
+  const xM = Math.max(1, good[good.length - 1].re), box = { L: 42, R: 352, T: 8, B: 180, xl: t('axRE') };
+  const marker = (svg, sx) => { if (first && first.k > 0) S('line', { x1: sx(first.re), x2: sx(first.re), y1: box.T, y2: box.B, stroke: 'var(--crit)', 'stroke-width': 1.5, 'stroke-dasharray': '5 4' }, svg); };
+  const res = good.map(r => r.re);
+  // losses
+  { const svg = $('#sw1'), yM = Math.max(...good.map(r => r.L)) * 1.1, o = Object.assign({}, box, { x: [0, xM], y: [0, yM], yf: q => fx(q, 0) });
+    const { sx, sy } = axes(svg, o);
+    marker(svg, sx);
+    S('path', { d: lineD(good.map(r => [sx(r.re), sy(r.L)])), fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2 }, svg);
+    S('circle', { cx: sx(mn.re), cy: sy(mn.L), r: 5, fill: 'var(--accent)', stroke: 'var(--panel)', 'stroke-width': 2 }, svg);
+    crosshair(svg, o, res, sx, i => t('tipSw', fx(good[i].re, 0), `${fx(good[i].L, 2)} MW`)); }
+  // voltage
+  { const svg = $('#sw2'), all = good.flatMap(r => [r.vmin, r.vmax]).concat(CASE.vlim), a = Math.min(...all) - 0.01, b = Math.max(...all) + 0.01;
+    const o = Object.assign({}, box, { x: [0, xM], y: [a, b], yf: q => q.toFixed(2), yt: ticks(a, b, 4), L: 46 });
+    const { sx, sy } = axes(svg, o);
+    CASE.vlim.forEach(q => S('line', { x1: o.L, x2: o.R, y1: sy(q), y2: sy(q), class: 'tol' }, svg));
+    marker(svg, sx);
+    S('path', { d: lineD(good.map(r => [sx(r.re), sy(r.vmax)])), fill: 'none', stroke: 'var(--v-hi)', 'stroke-width': 2 }, svg);
+    S('path', { d: lineD(good.map(r => [sx(r.re), sy(r.vmin)])), fill: 'none', stroke: 'var(--v-lo)', 'stroke-width': 2 }, svg);
+    S('text', { x: o.L + 8, y: sy(good[0].vmax) + 15, class: 'lab' }, svg).textContent = t('hi');
+    S('text', { x: o.L + 8, y: sy(good[0].vmin) + 15, class: 'lab' }, svg).textContent = t('lo');
+    crosshair(svg, o, res, sx, i => t('tipSw', fx(good[i].re, 0), `${good[i].vmin.toFixed(3)} – ${good[i].vmax.toFixed(3)} pu`)); }
+  // loading
+  { const svg = $('#sw3'), yM = Math.max(120, ...good.map(r => r.ml)) * 1.05, o = Object.assign({}, box, { x: [0, xM], y: [0, yM], yf: q => q + '%' });
+    const { sx, sy } = axes(svg, o);
+    S('line', { x1: o.L, x2: o.R, y1: sy(100), y2: sy(100), class: 'tol' }, svg);
+    marker(svg, sx);
+    S('path', { d: lineD(good.map(r => [sx(r.re), sy(r.ml)])), fill: 'none', stroke: 'var(--conv)', 'stroke-width': 2 }, svg);
+    crosshair(svg, o, res, sx, i => t('tipSw', fx(good[i].re, 0), `${fx(good[i].ml, 0)}%`)); }
+}
+
+/* ---------- siting ---------- */
+function renderSites() {
+  const size = +$('#sizeP').value;
+  $('#sizePo').textContent = size + ' MW';
+  $('#siteNote').textContent = t('siteNote');
+  const tb = $('#siteTbl');
+  const head = `<thead><tr><th>${t('bus')}</th><th class="bar-cell">${t('thDL')}</th><th class="r">MW</th><th class="r">${t('thVb')}</th><th class="r">${t('thVx')}</th><th class="r">${t('thLx')}</th><th>${t('thVerdict')}</th></tr></thead>`;
+  if (RES.status !== 'ok') { tb.innerHTML = head + `<tbody><tr><td colspan="7" class="msg">${t('noRes')}</td></tr></tbody>`; return; }
+  const rows = [];
+  CASE.buses.forEach(b => {
+    if (b.id === PF.NO_PLANT_BUS) return;
+    const r = PF.solve(Object.assign({}, CASE, { extra: { bus: b.id, P: size } }));
+    rows.push(r.status === 'ok' ? { id: b.id, dL: r.totals.Pl - RES.totals.Pl, Vb: r.buses[b.id - 1].Vm, Vx: r.totals.vmax.Vm, Lx: r.totals.maxLoad.load, T2: r.totals } : { id: b.id, fail: true });
+  });
+  const good = rows.filter(r => !r.fail), mx = Math.max(0.01, ...good.map(r => Math.abs(r.dL)));
+  const within = good.filter(r => !r.T2.Vlow.length && !r.T2.Vhigh.length && !r.T2.over.length);
+  const best = within.length ? within.reduce((a, r) => (r.dL < a.dL ? r : a), within[0]) : null;
+  tb.innerHTML = head + '<tbody>' + rows.map(r => {
+    if (r.fail) return `<tr class="off"><td>${r.id}</td><td colspan="5"></td><td><span class="chip lim">${t('vFail')}</span></td></tr>`;
+    const w = 50 * Math.abs(r.dL) / mx, left = r.dL < 0 ? 50 - w : 50;
+    const tags = [];
+    if (r.T2.Vhigh.length) tags.push(`<span class="chip lim">▲ ${t('vHigh')}</span>`);
+    if (r.T2.Vlow.length) tags.push(`<span class="chip lim">▼ ${t('vLow')}</span>`);
+    if (r.T2.over.length) tags.push(`<span class="chip lim">! ${t('vOver')} ${r.T2.over.map(j => brName(CASE.branches[j])).join(', ')}</span>`);
+    if (!tags.length) tags.push(`<span class="chip">✓ ${t('vOk')}</span>`);
+    if (best === r) tags.push(`<span class="chip re">★ ${t('vBest')}</span>`);
+    return `<tr><td>${r.id}${r.id === 1 ? ' <span class="small">' + t('vSlack') + '</span>' : ''}</td><td class="bar-cell" data-tip="${t('tipDL', r.id, sgn(r.dL, 2)).replace(/"/g, '&quot;')}"><div class="dbar"><i style="left:${left.toFixed(1)}%;width:${w.toFixed(1)}%;background:${r.dL < 0 ? 'var(--conv)' : 'var(--v-hi)'}"></i></div></td><td class="r">${sgn(r.dL, 2)}</td><td class="r">${r.Vb.toFixed(3)}</td><td class="r">${r.Vx.toFixed(3)}</td><td class="r">${fx(r.Lx, 0)}%</td><td>${tags.join(' ')}</td></tr>`;
+  }).join('') + '</tbody>';
+}
+
+/* ---------- day ---------- */
+const DAYS = {
+  spring: {
+    v: [11, 11.5, 12, 12.5, 12, 11.5, 11, 10, 9, 8, 7.5, 7, 7, 7.5, 8, 8.5, 9, 10, 11, 12, 12.5, 12.5, 12, 11.5],
+    G: [0, 0, 0, 0, 0, 10, 90, 230, 420, 600, 730, 810, 830, 790, 680, 520, 330, 140, 20, 0, 0, 0, 0, 0],
+    T: [9, 9, 8, 8, 8, 8, 9, 10, 12, 13, 15, 16, 17, 17, 17, 16, 15, 14, 13, 12, 11, 11, 10, 10],
+    L: [.62, .58, .56, .55, .56, .60, .70, .82, .90, .93, .94, .94, .92, .90, .89, .90, .94, 1, 1, .97, .90, .82, .74, .67]
+  },
+  summer: {
+    v: [5, 4.5, 4.5, 4, 4, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 7.5, 7.5, 7, 6.5, 6, 5.5, 5.5, 5.5, 5, 5, 5],
+    G: [0, 0, 0, 0, 0, 40, 170, 360, 550, 720, 850, 930, 950, 910, 810, 660, 470, 270, 90, 10, 0, 0, 0, 0],
+    T: [19, 18, 18, 17, 17, 18, 20, 22, 25, 27, 29, 31, 32, 33, 33, 33, 32, 31, 29, 27, 25, 23, 21, 20],
+    L: [.64, .60, .58, .57, .58, .62, .70, .78, .85, .90, .94, .97, .99, 1, 1, .99, .98, .97, .96, .93, .88, .80, .73, .68]
+  },
+  winter: {
+    v: [3, 3, 3.5, 3.5, 4, 4, 4.5, 5, 5, 4.5, 4.5, 4, 4, 4, 4, 4.5, 5, 5, 5, 4.5, 4, 3.5, 3.5, 3],
+    G: [0, 0, 0, 0, 0, 0, 0, 10, 60, 130, 190, 230, 240, 210, 150, 80, 20, 0, 0, 0, 0, 0, 0, 0],
+    T: [-2, -2, -3, -3, -3, -3, -2, -1, 0, 2, 3, 4, 5, 5, 4, 3, 2, 1, 0, 0, -1, -1, -2, -2],
+    L: [.70, .66, .64, .63, .64, .68, .78, .90, .96, .96, .94, .92, .90, .89, .89, .92, .98, 1, 1, .98, .94, .87, .80, .74]
+  }
+};
+let DAYROWS = [];
+function computeDay() {
+  const d = DAYS[DAY];
+  DAYROWS = d.v.map((v, h) => {
+    const r = PF.solve(Object.assign({}, CASE, { weather: { v, G: d.G[h], Ta: d.T[h] }, loadScale: d.L[h], reScale: 1 }));
+    if (r.status !== 'ok') return { h, fail: true };
+    const by = ty => r.plants.filter(q => q.p.type === ty).reduce((a, q) => a + q.o.P, 0);
+    return { h, w: by('wind'), s: by('pv'), load: r.totals.Pd, conv: r.totals.Pg, L: r.totals.Pl, vmin: r.totals.vmin.Vm, vmax: r.totals.vmax.Vm, ml: r.totals.maxLoad.load, viol: r.totals.Vlow.length + r.totals.Vhigh.length + r.totals.over.length > 0 };
+  });
+}
+function renderDay() {
+  computeDay();
+  const rows = DAYROWS, good = rows.filter(r => !r.fail), hs = rows.map(r => r.h);
+  const hour = +$('#hour').value, h4 = [0, 3, 6, 9, 12, 15, 18, 21, 23];
+  ['#dayP', '#dayV', '#dayL'].forEach(i => { $(i).textContent = ''; });
+  $('#houro').textContent = String(hour).padStart(2, '0') + ':00';
+  const d = DAYS[DAY];
+  $('#hourRead').textContent = t('hrRead', d.v[hour], d.G[hour], d.T[hour], d.L[hour].toFixed(2));
+  const tipFn = i => {
+    const r = rows[i];
+    if (r.fail) return t('tipHr', r.h) + '<br>' + t('solved');
+    return `${t('tipHr', r.h)}<br>${t('tipW')} <span class="m">${fx(r.w, 1)}</span> · ${t('tipS')} <span class="m">${fx(r.s, 1)}</span><br>${t('tipLo')} <span class="m">${fx(r.load, 1)}</span> · ${t('tipCo')} <span class="m">${fx(r.conv, 1)}</span> MW<br>|V| <span class="m">${r.vmin.toFixed(3)}–${r.vmax.toFixed(3)}</span> · <span class="m">${fx(r.ml, 0)}%</span>`;
+  };
+  const pickH = i => { $('#hour').value = rows[i].h; renderDay(); };
+
+  if (good.length) {
+    // power
+    const vals = good.flatMap(r => [r.w + r.s, r.load, r.conv]), yMin = Math.min(0, ...vals), yMax = Math.max(...vals) * 1.08;
+    const svg = $('#dayP'), o = { L: 48, R: 884, T: 8, B: 240, x: [0, 23], y: [yMin, yMax], xt: h4, xl: t('axH'), xf: q => String(q).padStart(2, '0') + ':00', yf: q => fx(q, 0) };
+    const { sx, sy } = axes(svg, o);
+    const seq = rows.map(r => r.fail ? null : r);
+    const areaD = (lo, hi) => {
+      let out = '', run = [];
+      const flush = () => { if (run.length > 1) out += 'M' + run.map(r => `${sx(r.h).toFixed(1)} ${sy(hi(r)).toFixed(1)}`).join('L') + 'L' + run.slice().reverse().map(r => `${sx(r.h).toFixed(1)} ${sy(lo(r)).toFixed(1)}`).join('L') + 'Z'; run = []; };
+      seq.forEach(r => { if (r) run.push(r); else flush(); });
+      flush();
+      return out;
+    };
+    S('path', { d: areaD(() => 0, r => r.w), fill: 'var(--wind)', stroke: 'var(--panel)', 'stroke-width': 2 }, svg);
+    S('path', { d: areaD(r => r.w, r => r.w + r.s), fill: 'var(--sun)', stroke: 'var(--panel)', 'stroke-width': 2 }, svg);
+    if (yMin < 0) S('line', { x1: o.L, x2: o.R, y1: sy(0), y2: sy(0), class: 'base' }, svg);
+    S('path', { d: lineD(seq.map(r => r && [sx(r.h), sy(r.load)])), fill: 'none', stroke: 'var(--load)', 'stroke-width': 2.2 }, svg);
+    S('path', { d: lineD(seq.map(r => r && [sx(r.h), sy(r.conv)])), fill: 'none', stroke: 'var(--conv)', 'stroke-width': 2.2 }, svg);
+    S('line', { x1: sx(hour), x2: sx(hour), y1: o.T, y2: o.B, class: 'tol' }, svg);
+    S('text', { x: sx(good[0].h) + 6, y: sy(good[0].load) - 8, class: 'lab' }, svg).textContent = t('tipLo');
+    S('text', { x: sx(good[0].h) + 6, y: sy(good[0].conv) + (good[0].conv < good[0].load ? 16 : -8), class: 'lab' }, svg).textContent = t('tipCo');
+    S('text', { x: o.L - 6, y: o.T + 2, 'text-anchor': 'end', class: 'ax' }, svg).textContent = 'MW';
+    crosshair(svg, o, hs, sx, tipFn, pickH);
+    // voltage
+    const vs = $('#dayV'), all = good.flatMap(r => [r.vmin, r.vmax]).concat(CASE.vlim), a = Math.min(...all) - 0.01, b = Math.max(...all) + 0.01;
+    const vo = { L: 46, R: 430, T: 8, B: 172, x: [0, 23], y: [a, b], xt: [0, 6, 12, 18, 23], xl: t('axH'), yf: q => q.toFixed(2), yt: ticks(a, b, 4) };
+    const v2 = axes(vs, vo);
+    CASE.vlim.forEach(q => S('line', { x1: vo.L, x2: vo.R, y1: v2.sy(q), y2: v2.sy(q), class: 'tol' }, vs));
+    S('path', { d: lineD(seq.map(r => r && [v2.sx(r.h), v2.sy(r.vmax)])), fill: 'none', stroke: 'var(--v-hi)', 'stroke-width': 2 }, vs);
+    S('path', { d: lineD(seq.map(r => r && [v2.sx(r.h), v2.sy(r.vmin)])), fill: 'none', stroke: 'var(--v-lo)', 'stroke-width': 2 }, vs);
+    S('line', { x1: v2.sx(hour), x2: v2.sx(hour), y1: vo.T, y2: vo.B, class: 'tol' }, vs);
+    S('text', { x: vo.L + 8, y: v2.sy(good[0].vmax) + 15, class: 'lab' }, vs).textContent = t('hi');
+    S('text', { x: vo.L + 8, y: v2.sy(good[0].vmin) + 15, class: 'lab' }, vs).textContent = t('lo');
+    crosshair(vs, vo, hs, v2.sx, tipFn, pickH);
+    // loading
+    const ls = $('#dayL'), yM = Math.max(120, ...good.map(r => r.ml)) * 1.05, lo = { L: 42, R: 430, T: 8, B: 172, x: [0, 23], y: [0, yM], xt: [0, 6, 12, 18, 23], xl: t('axH'), yf: q => q + '%' };
+    const l2 = axes(ls, lo);
+    S('line', { x1: lo.L, x2: lo.R, y1: l2.sy(100), y2: l2.sy(100), class: 'tol' }, ls);
+    S('path', { d: lineD(seq.map(r => r && [l2.sx(r.h), l2.sy(r.ml)])), fill: 'none', stroke: 'var(--conv)', 'stroke-width': 2 }, ls);
+    S('line', { x1: l2.sx(hour), x2: l2.sx(hour), y1: lo.T, y2: lo.B, class: 'tol' }, ls);
+    crosshair(ls, lo, hs, l2.sx, tipFn, pickH);
+  }
+  // stats
+  const sum = k => good.reduce((a, r) => a + r[k], 0), re = good.reduce((a, r) => a + r.w + r.s, 0), ld = sum('load');
+  let ramp = 0;
+  for (let i = 1; i < rows.length; i++) if (!rows[i].fail && !rows[i - 1].fail) ramp = Math.max(ramp, Math.abs(rows[i].conv - rows[i - 1].conv));
+  const rd = (k, v) => `<div>${t(k)}<b>${v}</b></div>`;
+  $('#dayStats').innerHTML = rd('dsRE', `${fx(re, 0)} MWh`) + rd('dsLoad', `${fx(ld, 0)} MWh`) + rd('dsShare', ld ? `${fx(100 * re / ld, 0)}%` : '–') + rd('dsLoss', `${fx(sum('L'), 0)} MWh`) + rd('dsPeak', `${fx(ramp, 0)} MW/h`) + rd('dsViol', good.filter(r => r.viol).length) + (good.length < rows.length ? rd('dsFail', rows.length - good.length) : '');
+  $('#dayTbl').innerHTML = `<thead><tr><th>${t('thH')}</th><th class="r">${t('thW')}</th><th class="r">${t('thSo')}</th><th class="r">${t('thLo')}</th><th class="r">${t('thCo')}</th><th class="r">${t('thLs')}</th><th class="r">${t('thVmin')}</th><th class="r">${t('thVmax')}</th><th class="r">${t('thMax')}</th></tr></thead><tbody>` +
+    rows.map(r => r.fail ? `<tr class="off"><td>${String(r.h).padStart(2, '0')}:00</td><td colspan="8">${t('solved')}</td></tr>` : `<tr class="${r.h === hour ? 'sel' : ''}"><td>${String(r.h).padStart(2, '0')}:00</td><td class="r">${fx(r.w, 1)}</td><td class="r">${fx(r.s, 1)}</td><td class="r">${fx(r.load, 1)}</td><td class="r">${fx(r.conv, 1)}</td><td class="r">${fx(r.L, 2)}</td><td class="r">${r.vmin.toFixed(3)}</td><td class="r">${r.vmax.toFixed(3)}</td><td class="r">${fx(r.ml, 0)}${r.ml > 100 ? ' <span class="flag">!</span>' : ''}</td></tr>`).join('') + '</tbody>';
+}
+
+/* ---------- exercises ---------- */
+const EX = [
+  { en: ['With the default turbine (cut-in 3, rated 12, cut-out 25 m/s), how much does output change when wind speed doubles from 6 to 12 m/s? What happens at 25 m/s?',
+         'Output goes from {W6}% to 100% of the farm’s capability, a factor of {W6X}, because power follows the cube of speed. At 25 m/s the turbines shut down and output falls to zero at once. For the grid, that sudden drop is harder to handle than the slow changes in between.'],
+    zh: ['默认风机参数（切入 3、额定 12、切出 25 m/s）下，风速从 6 m/s 翻倍到 12 m/s 时，出力变化多少？风速达到 25 m/s 时会怎样？',
+         '出力从风电场最大值的 {W6}% 升到 100%，增加到 {W6X} 倍，因为功率与风速的三次方相关。风速达到 25 m/s 时风机停机，出力立刻降为零。对电网来说，这种突然下降比中间的缓慢变化更难应对。'] },
+  { en: ['A 60 MWp solar plant (default parameters) sees 1000 W/m². Compare 0 °C and 35 °C ambient. Which gives more power to the grid, and how much is clipped?',
+         'At 0 °C the panels are cooler and could deliver {PC} MW, but the inverter limit of {PS} MW clips {PCC} MW. At 35 °C the available power is only {PH} MW, so nothing is clipped. The cold, bright day still gives more AC power.'],
+    zh: ['一座 60 MWp 光伏电站（默认参数），辐照度 1000 W/m²。比较环境温度 0 °C 和 35 °C：哪种情况送入电网的功率更多？限幅损失是多少？',
+         '0 °C 时组件温度较低，可用功率为 {PC} MW，但逆变器上限为 {PS} MW，被削掉 {PCC} MW。35 °C 时可用功率只有 {PH} MW，没有限幅。寒冷晴朗的日子交流出力仍然更高。'] },
+  { en: ['Choose the Remote wind scenario (60 MW at bus 14, 10 m/s). Which branch flows reverse, and why those?',
+         'Branches {REV} reverse. The farm produces {P14} MW but bus 14 only consumes 14.9 MW, so the surplus flows out towards the rest of the network through the two lines that normally feed bus 14. Bus 14 changes from a load centre to a net source.'],
+    zh: ['选择“远端风电”场景（节点 14 接 60 MW，风速 10 m/s）。哪些支路潮流反向？为什么是这些支路？',
+         '支路 {REV} 潮流反向。风电场发出 {P14} MW，而节点 14 的负荷只有 14.9 MW，多余功率经原来向节点 14 供电的两条线路流向电网其他部分。节点 14 从负荷中心变成了净电源。'] },
+  { en: ['In the same scenario, compare constant pf 1.00 with pf 0.95 absorbing Q and pf 0.95 injecting Q. What happens to |V| at bus 14, and to total losses?',
+         '|V<sub>14</sub>| is {V0} pu with no plant. It rises to {VU} pu at unity pf, falls back to {VA} pu when absorbing Q, and climbs to {VI} pu when injecting Q. Losses barely change ({LU}, {LA} and {LI} MW). Reactive power is a strong voltage control because the network’s X is larger than its R.'],
+    zh: ['仍是这个场景，比较功率因数 1.00、0.95（吸收无功）和 0.95（发出无功）。节点 14 的 |V| 和全网网损怎样变化？',
+         '无电站时 |V<sub>14</sub>| 为 {V0} pu。单位功率因数时升到 {VU} pu，吸收无功时回落到 {VA} pu，发出无功时升到 {VI} pu。网损变化很小（{LU}、{LA}、{LI} MW）。因为网络的 X 大于 R，无功是很有效的调压手段。'] },
+  { en: ['Switch the wind farm at bus 14 to voltage control with |V|set = 1.03 pu, and then to Q(V) with Vref = 1.03 pu, D = 0.05. Compare Q and |V| in the two modes.',
+         'Voltage control holds exactly 1.030 pu by absorbing {QV} MVAr, and the bus becomes PV. Q(V) settles at {VD} pu with {QD} MVAr: the voltage stays a little above the reference, and in exchange the plant uses less reactive power. The bus stays PQ, and Newton–Raphson still needs only {ITD} iterations.'],
+    zh: ['把节点 14 的风电场改为恒电压控制（|V|set = 1.03 pu），再改为 Q(V) 控制（Vref = 1.03 pu，D = 0.05）。比较两种方式的 Q 和 |V|。',
+         '恒电压控制吸收 {QV} MVAr，把电压精确维持在 1.030 pu，节点变为 PV 类型。Q(V) 控制稳定在 {VD} pu、{QD} MVAr：电压略高于参考值，但电站使用的无功更少。节点仍是 PQ 类型，牛顿法仍然只需 {ITD} 次迭代。'] },
+  { en: ['Start from the None scenario and use the siting table with a 60 MW plant. Which bus gives the lowest losses, and which gives the worst overload?',
+         'Bus {BB} gives the lowest losses, {BBL} MW (from {LB} MW with no plant), because it carries the largest load in the system. Bus {WO} causes the worst overload: branch {WOB} reaches {WOL}%. A remote bus can look harmless on a voltage chart and still be limited by a small line.'],
+    zh: ['从“无新能源”场景开始，在接入位置表中选择 60 MW 电站。哪个节点网损最低？哪个节点造成的过载最严重？',
+         '节点 {BB} 网损最低，为 {BBL} MW（无电站时为 {LB} MW），因为系统最大的负荷就在这里。节点 {WO} 造成的过载最严重：支路 {WOB} 达到 {WOL}%。一个偏远节点在电压图上可能看不出问题，却仍然会受小容量线路限制。'] },
+  { en: ['Choose the Mixed scenario and read the sweep in section 06. Why do losses fall and then rise?',
+         'Losses fall from {SL0} MW to a minimum of {SLM} MW at about {SRM} MW of renewable output, because generation near the loads shortens the paths power travels. Beyond that, the surplus flows back across the network, and at {SRX} MW losses are back up to {SLX} MW.'],
+    zh: ['选择“风光混合”场景，查看第 06 节的扫描结果。为什么网损先降后升？',
+         '网损从 {SL0} MW 降到最低的 {SLM} MW（新能源出力约 {SRM} MW），因为靠近负荷的电源缩短了功率传输路径。之后多余功率要反向穿过电网，在 {SRX} MW 时网损又回升到 {SLX} MW。'] },
+  { en: ['Set the Remote wind farm to full output (12 m/s), then take line 9–14 out of service. Which limit is broken more severely: voltage or thermal?',
+         'Before the outage, line 9–14 is already at {O1}%. With it out, all the surplus must leave through line 13–14, which reaches {O2}%, and |V<sub>14</sub>| rises to {O3} pu, past the 1.10 pu limit. Both limits break, but the overload is far more severe. This is an N−1 problem: a farm that fits with all lines in service may not fit after one outage.'],
+    zh: ['把远端风电场调到满发（风速 12 m/s），再断开线路 9–14。电压限值和热稳定限值，哪个被突破得更严重？',
+         '断开之前线路 9–14 已经达到 {O1}%。断开后，多余功率只能经线路 13–14 送出，该线路负载率达到 {O2}%，|V<sub>14</sub>| 升到 {O3} pu，超过 1.10 pu 的限值。两个限值都被突破，但过载严重得多。这就是 N−1 问题：所有线路投运时能接入的风电场，断开一条线路后可能就接不下了。'] },
+  { en: ['Choose High share. The slack output goes negative. What does that mean, and what could you change?',
+         'Renewables deliver {HR} MW and the bus 2 generator adds {HG} MW, against {HD} MW of load and {HL} MW of losses. The slack generator would have to absorb the remaining {HS} MW. That is the arithmetic of the model, not something a generator can do for long. In practice, the operator would lower conventional output, export the surplus or curtail plants. Try the active power limit slider: setting the wind farm at bus 14 to {HC}% brings the slack back up to {HS2} MW and takes the highest branch loading down to {HL2}%.'],
+    zh: ['选择“高比例”场景，平衡机出力变为负值。这意味着什么？可以怎样调整？',
+         '新能源发出 {HR} MW，节点 2 发电机再发 {HG} MW，而负荷为 {HD} MW、网损 {HL} MW，平衡机需要吸收其余的 {HS} MW。这只是模型的计算结果，发电机并不能长期这样运行。实际中调度会降低常规机组出力、外送多余功率或弃风弃光。可以试试有功上限滑块：把节点 14 风电场的上限设为 {HC}%，平衡机出力回升到 {HS2} MW，最高支路负载率降到 {HL2}%。'] }
+];
+let EXV = {};
+function computeExerciseValues() {
+  const v = {}, mk = (plants, over) => Object.assign(PF.baseCase(), { plants }, over);
+  const w = PF.newPlant('wind', 14), pu6 = PF.windPU(w, 6);
+  v.W6 = fx(100 * pu6, 0); v.W6X = fx(1 / pu6, 0);
+  const pv = PF.newPlant('pv', 4), cold = PF.plantOutput(pv, { v: 0, G: 1000, Ta: 0 }), hot = PF.plantOutput(pv, { v: 0, G: 1000, Ta: 35 });
+  v.PC = fx(cold.avail, 1); v.PS = fx(cold.S, 1); v.PCC = fx(cold.clipped, 1); v.PH = fx(hot.avail, 1);
+  const base = PF.solve(PF.baseCase());
+  const rm = () => W(14, 60);
+  const u = PF.solve(mk([rm()]));
+  v.REV = u.branches.map((x, j) => { const b = base.branches[j], pa = (x.Pf - x.Pt) / 2, pb = (b.Pf - b.Pt) / 2; return Math.abs(pa) > 1 && Math.abs(pb) > 1 && pa * pb < 0 ? brName(PF.baseCase().branches[j]) : null; }).filter(Boolean);
+  v.REVN = v.REV.length; v.REV = v.REV.join(LANG === 'zh' ? '、' : ' and ');
+  v.P14 = fx(u.plants[0].o.P, 1);
+  const ab = PF.solve(mk([W(14, 60, { pf: 0.95, pfSign: -1 })])), inj = PF.solve(mk([W(14, 60, { pf: 0.95, pfSign: 1 })]));
+  v.V0 = base.buses[13].Vm.toFixed(3); v.VU = u.buses[13].Vm.toFixed(3); v.VA = ab.buses[13].Vm.toFixed(3); v.VI = inj.buses[13].Vm.toFixed(3);
+  v.LU = fx(u.totals.Pl, 2); v.LA = fx(ab.totals.Pl, 2); v.LI = fx(inj.totals.Pl, 2);
+  const vc = PF.solve(mk([W(14, 60, { mode: 'v', Vset: 1.03 })])), qv = PF.solve(mk([W(14, 60, { mode: 'qv', Vref: 1.03, droop: 0.05 })]));
+  v.QV = fx(-vc.plants[0].Qinj, 1); v.VD = qv.buses[13].Vm.toFixed(3); v.QD = fx(qv.plants[0].Qinj, 1); v.ITD = qv.total;
+  let bb = null, wo = null;
+  PF.baseCase().buses.forEach(b => {
+    if (b.id === PF.NO_PLANT_BUS) return;
+    const r = PF.solve(Object.assign(PF.baseCase(), { extra: { bus: b.id, P: 60 } }));
+    if (r.status !== 'ok') return;
+    if (!bb || r.totals.Pl < bb.L) bb = { id: b.id, L: r.totals.Pl };
+    if (!wo || r.totals.maxLoad.load > wo.L) wo = { id: b.id, L: r.totals.maxLoad.load, j: r.totals.maxLoad.j };
+  });
+  v.BB = bb.id; v.BBL = fx(bb.L, 2); v.LB = fx(base.totals.Pl, 2); v.WO = wo.id; v.WOL = fx(wo.L, 0); v.WOB = brName(PF.baseCase().branches[wo.j]);
+  const mx = mk(PRESETS.mixed.plants());
+  let rows = [];
+  for (let k = 0; k <= 30; k++) { mx.reScale = k / 10; const r = PF.solve(mx); if (r.status === 'ok') rows.push({ re: r.totals.Pre, L: r.totals.Pl }); }
+  const mn = rows.reduce((a, r) => (r.L < a.L ? r : a), rows[0]), last = rows[rows.length - 1];
+  v.SL0 = fx(rows[0].L, 2); v.SLM = fx(mn.L, 2); v.SRM = fx(mn.re, 0); v.SRX = fx(last.re, 0); v.SLX = fx(last.L, 2);
+  const full = mk([rm()], { weather: { v: 12, G: 800, Ta: 25 } }), f0 = PF.solve(full);
+  const bi = full.branches.findIndex(b => b.f === 9 && b.t === 14), b2 = full.branches.findIndex(b => b.f === 13 && b.t === 14);
+  v.O1 = fx(f0.branches[bi].load, 0);
+  full.branches[bi].on = false;
+  const f1 = PF.solve(full);
+  v.O2 = fx(f1.branches[b2].load, 0); v.O3 = f1.buses[13].Vm.toFixed(3);
+  const hv = PF.solve(mk(PRESETS.heavy.plants()));
+  v.HR = fx(hv.totals.Pre, 0); v.HD = fx(hv.totals.Pd, 0); v.HS = fx(-hv.totals.Pslack, 0); v.HG = fx(hv.buses[1].Pg, 0); v.HL = fx(hv.totals.Pl, 0);
+  const hc = PRESETS.heavy.plants(); hc[0].cap = 30;
+  const hv2 = PF.solve(mk(hc));
+  v.HC = 30; v.HS2 = fx(hv2.totals.Pslack, 0); v.HL2 = fx(hv2.totals.maxLoad.load, 0);
+  EXV = v;
+}
+function renderExercises() {
+  computeExerciseValues();
+  const list = $('#exList'), open = [...list.querySelectorAll('details')].map(d => d.open);
+  list.innerHTML = EX.map((e, i) => {
+    const [q, a] = e[LANG], ans = a.replace(/\{(\w+)\}/g, (_, k) => EXV[k] ?? '–');
+    return `<details id="ex${i + 1}"${open[i] ? ' open' : ''}><summary><span class="k">${String(i + 1).padStart(2, '0')}</span><span class="q">${q}</span></summary><div class="ans"><p>${ans}</p></div></details>`;
+  }).join('');
+}
+
+/* ---------- tooltip ---------- */
+const tipEl = $('#tip');
+function showTip(html, x, y) {
+  tipEl.innerHTML = html; tipEl.hidden = false;
+  const w = tipEl.offsetWidth, h = tipEl.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+  let lx = x + 14, ly = y + 14;
+  if (lx + w > vw - 8) lx = x - w - 14;
+  if (ly + h > vh - 8) ly = y - h - 14;
+  tipEl.style.left = Math.max(8, lx) + 'px'; tipEl.style.top = Math.max(8, ly) + 'px';
+}
+function hideTip() { tipEl.hidden = true; }
+document.addEventListener('pointermove', e => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (el) showTip(el.getAttribute('data-tip'), e.clientX, e.clientY);
+  else if (!e.target.closest || !(e.target.closest('svg.chart') && e.target.getAttribute('fill') === 'transparent')) hideTip();
+});
+document.addEventListener('pointerdown', e => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (el && e.pointerType !== 'mouse') showTip(el.getAttribute('data-tip'), e.clientX, e.clientY);
+});
+document.addEventListener('focusin', e => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (el) { const r = el.getBoundingClientRect(); showTip(el.getAttribute('data-tip'), r.right, r.bottom); }
+});
+document.addEventListener('focusout', hideTip);
+window.addEventListener('scroll', hideTip, { passive: true });
+
+/* ---------- wiring ---------- */
+function syncControls() {
+  const w = CASE.weather;
+  $('#wV').value = w.v; $('#wG').value = w.G; $('#wT').value = w.Ta; $('#wL').value = CASE.loadScale;
+  $('#qlim').checked = CASE.qlim;
+  $('#vMin').value = CASE.vlim[0]; $('#vMax').value = CASE.vlim[1];
+  renderWeatherOut();
+}
+function renderWeatherOut() {
+  const w = CASE.weather;
+  $('#wVo').textContent = w.v.toFixed(1) + ' m/s'; $('#wGo').textContent = w.G + ' W/m²'; $('#wTo').textContent = minus(String(w.Ta)) + ' °C'; $('#wLo').textContent = CASE.loadScale.toFixed(2) + '×';
+}
+function solveAll() {
+  RES = PF.solve(CASE);
+  REF = PF.solve(PF.without(CASE));
+}
+function renderLab() {
+  renderStatus(); renderDiagram(); renderPlantPanels(); renderTables(); renderLabCharts();
+}
+let heavyTimer = null;
+function renderHeavy() { renderSweep(); renderSites(); renderDay(); }
+function scheduleHeavy() { clearTimeout(heavyTimer); heavyTimer = setTimeout(renderHeavy, 120); }
+function recompute() {
+  solveAll();
+  renderWeatherOut();
+  renderLab(); renderTheory();
+  scheduleHeavy();
+}
+function renderAll() {
+  readTokens();
+  renderLegend(); renderLab(); renderTheory(); renderHeavy(); renderExercises();
+}
+function setLang(l) {
+  LANG = l === 'zh' ? 'zh' : 'en';
+  document.documentElement.setAttribute('data-lang', LANG);
+  document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : 'en';
+  $('#lang-en').setAttribute('aria-pressed', LANG === 'en');
+  $('#lang-zh').setAttribute('aria-pressed', LANG === 'zh');
+  try { localStorage.setItem('repf-lang', LANG); } catch (e) { /* storage unavailable */ }
+  renderAll();
+}
+document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
+document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => { applyPreset(b.dataset.preset); syncControls(); recompute(); }));
+const bindRange = (id, fn) => $(id).addEventListener('input', e => { fn(parseFloat(e.target.value)); recompute(); });
+bindRange('#wV', v => { CASE.weather.v = v; });
+bindRange('#wG', v => { CASE.weather.G = v; });
+bindRange('#wT', v => { CASE.weather.Ta = v; });
+bindRange('#wL', v => { CASE.loadScale = v; });
+$('#qlim').addEventListener('change', e => { CASE.qlim = e.target.checked; recompute(); });
+$('#showFlows').addEventListener('change', renderDiagram);
+$('#vMin').addEventListener('input', e => { const v = parseFloat(e.target.value); if (isFinite(v) && v >= 0.8 && v <= 1) { CASE.vlim = [v, CASE.vlim[1]]; recompute(); } });
+$('#vMax').addEventListener('input', e => { const v = parseFloat(e.target.value); if (isFinite(v) && v >= 1 && v <= 1.2) { CASE.vlim = [CASE.vlim[0], v]; recompute(); } });
+const bindBus = (id, fn) => $(id).addEventListener('input', e => { const v = parseFloat(e.target.value); if (isFinite(v) && SELBUS) { fn(v, e.target); recompute(); } });
+bindBus('#bcPd', v => { CASE.buses[SELBUS - 1].Pd = v; });
+bindBus('#bcQd', v => { CASE.buses[SELBUS - 1].Qd = v; });
+bindBus('#bcPg', v => { CASE.gens.find(g => g.bus === SELBUS).Pg = clamp(v, 0, 500); });
+bindBus('#bcVg', v => { if (v >= 0.9 && v <= 1.1) CASE.gens.find(g => g.bus === SELBUS).Vg = v; });
+document.querySelectorAll('#editor input[data-k]').forEach(i => i.addEventListener('input', () => {
+  const v = parseFloat(i.value);
+  if (!SELP || !isFinite(v)) return;
+  SELP[i.dataset.k] = clamp(v, parseFloat(i.min), parseFloat(i.max));
+  PRESET = null;
+  recompute();
+}));
+$('#fSign').addEventListener('change', e => { if (SELP) { SELP.pfSign = +e.target.value; recompute(); } });
+document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { if (SELP) { SELP.mode = b.dataset.mode; PRESET = null; recompute(); } }));
+$('#edRemove').addEventListener('click', () => {
+  const i = CASE.plants.indexOf(SELP);
+  if (i >= 0) CASE.plants.splice(i, 1);
+  SELP = CASE.plants[0] || null; PRESET = null;
+  recompute();
+});
+$('#edCopy').addEventListener('click', () => {
+  if (!SELP) return;
+  CASE.plants.forEach(q => { if (q !== SELP && q.type === SELP.type) { const bus = q.bus; Object.assign(q, SELP, { bus }); } });
+  PRESET = null;
+  recompute();
+});
+$('#restoreAll').addEventListener('click', () => { CASE.branches.forEach(b => { b.on = true; }); recompute(); });
+$('#resetCase').addEventListener('click', () => {
+  CASE = PF.baseCase(); applyPreset('mixed'); syncControls(); recompute();
+});
+$('#sizeP').addEventListener('input', renderSites);
+document.querySelectorAll('[data-day]').forEach(b => b.addEventListener('click', () => {
+  DAY = b.dataset.day;
+  document.querySelectorAll('[data-day]').forEach(x => x.setAttribute('aria-pressed', x === b));
+  renderDay();
+}));
+$('#hour').addEventListener('input', renderDay);
+$('#hourLoad').addEventListener('click', () => {
+  const d = DAYS[DAY], h = +$('#hour').value;
+  CASE.weather = { v: d.v[h], G: d.G[h], Ta: d.T[h] };
+  CASE.loadScale = d.L[h];
+  syncControls(); recompute();
+  $('#lab').scrollIntoView();
+});
+const reTheme = () => { readTokens(); renderAll(); };
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', reTheme);
+new MutationObserver(reTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+// boot
+buildMatrix();
+applyPreset('mixed');
+syncControls();
+solveAll();
+let saved = 'en';
+try { saved = localStorage.getItem('repf-lang') || 'en'; } catch (e) { /* storage unavailable */ }
+setLang(saved);
+})();
+</script>
+</body>
+</html>
