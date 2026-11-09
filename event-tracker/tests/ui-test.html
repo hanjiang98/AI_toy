@@ -1,0 +1,409 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>UI tests</title>
+<style>iframe { width: 1200px; height: 800px; border: 1px solid #ccc; }</style>
+</head>
+<body>
+<pre id="out">running</pre>
+<iframe id="app" title="App under test"></iframe>
+<script src="../store.js"></script>
+<script src="mock-github.js"></script>
+<script>
+/* Drives the real page in an iframe against a mock GitHub API. It needs the same origin as the
+ * app, so serve the folder over http (any static server). It clears this origin's event tracker
+ * data before it starts. */
+const frame = document.getElementById('app');
+const lines = [];
+let fails = 0, total = 0;
+function check(name, cond, detail) {
+  total++;
+  if (!cond) fails++;
+  lines.push((cond ? 'ok   ' : 'FAIL ') + name + (cond || detail === undefined ? '' : '\n       ' + JSON.stringify(detail)));
+  document.getElementById('out').textContent = lines.join('\n') + '\nrunning…';
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function until(fn, what) {
+  for (let i = 0; i < 300; i++) {
+    const v = fn();
+    if (v) return v;
+    await sleep(20);
+  }
+  throw new Error('timed out waiting for: ' + what);
+}
+const doc = () => frame.contentDocument;
+const win = () => frame.contentWindow;
+const $ = sel => doc().querySelector(sel);
+const $$ = sel => Array.from(doc().querySelectorAll(sel));
+const text = sel => { const el = $(sel); return el ? el.textContent : null; };
+
+let gh = null;
+function load() {
+  return new Promise(resolve => {
+    frame.onload = () => { frame.onload = null; resolve(); };
+    frame.src = '../index.html';
+  });
+}
+function installMock() { if (gh) win().fetch = gh.fetch; }
+
+async function reload() {
+  await new Promise(resolve => {
+    frame.onload = () => { frame.onload = null; resolve(); };
+    win().location.reload();
+  });
+  installMock();
+}
+
+function setValue(el, value) {
+  el.value = value;
+  el.dispatchEvent(new (win().Event)('input', { bubbles: true }));
+}
+function submit(form) { form.requestSubmit(); }
+const dlgOpen = () => $('#dlg').open;
+
+async function createEvent(title, note) {
+  $('#newEventBtn').click();
+  await until(dlgOpen, 'new event dialog');
+  setValue($('#dlg input[name=title]'), title);
+  if (note) setValue($('#dlg textarea[name=note]'), note);
+  submit($('#dlg form'));
+  await until(() => !dlgOpen() && $('.detail h2') && $('.detail h2').textContent === title, 'event created');
+}
+async function addSub(status, title) {
+  const form = $(`.col-${status} .add-form`);
+  setValue(form.querySelector('input'), title);
+  submit(form);
+  await until(() => $$(`.col-${status} .item-title`).some(el => el.textContent === title), 'sub-event ' + title);
+}
+const itemCard = title => $$('.item').find(el => el.querySelector('.item-title').textContent === title);
+async function attach(button, name, content) {
+  button.click();
+  const dt = new (win().DataTransfer)();
+  dt.items.add(new (win().File)([content], name, { type: 'text/plain' }));
+  const picker = $('#filePicker');
+  picker.files = dt.files;
+  picker.dispatchEvent(new (win().Event)('change', { bubbles: true }));
+  await until(() => $$('.file-name').some(el => el.textContent === name), 'attachment ' + name);
+}
+async function confirmOk() { await until(dlgOpen, 'confirm dialog'); $('#dlg .dlg-ok').click(); await until(() => !dlgOpen(), 'dialog closed'); }
+
+async function clearAll() {
+  localStorage.clear();
+  await new Promise(resolve => {
+    const req = indexedDB.deleteDatabase('eventtracker');
+    req.onsuccess = req.onerror = req.onblocked = () => resolve();
+  });
+}
+
+(async function () {
+  await clearAll();
+  await load();
+
+  /* first visit */
+  check('English by default', doc().documentElement.lang === 'en' && text('h1') === 'Event Tracker', text('h1'));
+  check('welcome shows with no events', !!$('.welcome'));
+  check('stored locally by default', text('#storageNote').includes('browser only'));
+
+  /* create an event: time recorded automatically */
+  const t0 = Date.now();
+  await createEvent('Grid study', 'Phase 1 scope');
+  const list = () => JSON.parse(localStorage.getItem('eventtracker.data.local')).records;
+  const evRec = list().find(r => r.type === 'event');
+  check('creation time is recorded', evRec.created >= t0 && evRec.created <= Date.now(), evRec.created);
+  check('creation time is shown', /Created .*20\d\d/.test(text('.detail-meta')), text('.detail-meta'));
+  check('notes are shown', text('.note') === 'Phase 1 scope');
+  check('two columns, done first', $$('.column h3').map(el => el.textContent).join() === 'Done,To do', $$('.column h3').map(el => el.textContent));
+
+  /* sub-events in each column */
+  await addSub('todo', 'Write report');
+  await addSub('done', 'Kick-off meeting');
+  check('sub-event added to to do', !!$('.col-todo .item') && text('.col-todo .item-title') === 'Write report');
+  check('sub-event added to done', text('.col-done .item-title') === 'Kick-off meeting');
+  const done0 = list().find(r => r.title === 'Kick-off meeting');
+  check('added to done records completion time', done0.status === 'done' && done0.completed > 0);
+  check('counts in the sidebar', text('.event-row-state') === '1 of 2 done', text('.event-row-state'));
+
+  /* moving between columns */
+  itemCard('Write report').querySelector('input[type=checkbox]').click();
+  await until(() => $$('.col-done .item-title').some(el => el.textContent === 'Write report'), 'moved to done');
+  check('checkbox moves to done', $$('.col-todo .item').length === 0);
+  check('completion time recorded', list().find(r => r.title === 'Write report').completed > 0);
+  check('all done shown', text('.event-row-state') === 'All done', text('.event-row-state'));
+  itemCard('Write report').querySelector('input[type=checkbox]').click();
+  await until(() => $$('.col-todo .item-title').some(el => el.textContent === 'Write report'), 'moved back');
+  check('moving back clears completion', list().find(r => r.title === 'Write report').completed === null);
+
+  /* drag and drop between columns */
+  const dt = new (win().DataTransfer)();
+  itemCard('Write report').dispatchEvent(new (win().DragEvent)('dragstart', { bubbles: true, dataTransfer: dt }));
+  $('.col-done').dispatchEvent(new (win().DragEvent)('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
+  $('.col-done').dispatchEvent(new (win().DragEvent)('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
+  await until(() => $$('.col-done .item-title').some(el => el.textContent === 'Write report'), 'dragged to done');
+  check('dragging moves a sub-event', list().find(r => r.title === 'Write report').status === 'done');
+  itemCard('Write report').querySelector('input[type=checkbox]').click();
+  await until(() => $('.col-todo .item'), 'moved back after drag');
+
+  /* edit */
+  itemCard('Write report').querySelector('[data-fk^="edit:"]').click();
+  await until(dlgOpen, 'edit dialog');
+  check('edit dialog is filled in', $('#dlg input[name=title]').value === 'Write report');
+  setValue($('#dlg input[name=title]'), 'Write final report');
+  setValue($('#dlg textarea[name=note]'), 'Due Friday');
+  submit($('#dlg form'));
+  await until(() => itemCard('Write final report'), 'edited');
+  check('note shown on sub-event', itemCard('Write final report').querySelector('.item-note').textContent === 'Due Friday');
+
+  /* attachments */
+  await attach($('[data-fk="attach:event"]'), 'scope.txt', 'event level');
+  await attach(itemCard('Write final report').querySelector('[data-fk^="attach:"]'), '报告.txt', 'item level');
+  check('event attachment listed', text('.attach-box .file-name') === 'scope.txt');
+  check('sub-event attachment listed', itemCard('Write final report').querySelector('.file-name').textContent === '报告.txt');
+
+  /* download goes through a download link, never opening the file in the page */
+  let downloaded = null;
+  const AnchorProto = win().HTMLAnchorElement.prototype;
+  const origClick = AnchorProto.click;
+  AnchorProto.click = function () { downloaded = { name: this.download, href: this.href }; };
+  $('.attach-box .file-open').click();
+  await until(() => downloaded, 'download');
+  AnchorProto.click = origClick;
+  check('download uses the original name', downloaded.name === 'scope.txt' && downloaded.href.startsWith('blob:'), downloaded);
+
+  /* oversized attachment */
+  const huge = new (win().File)([new Uint8Array(26 * 1024 * 1024)], 'huge.bin');
+  const dtHuge = new (win().DataTransfer)();
+  dtHuge.items.add(huge);
+  $('[data-fk="attach:event"]').click();
+  const pick = $('#filePicker');
+  pick.files = dtHuge.files;
+  pick.dispatchEvent(new (win().Event)('change', { bubbles: true }));
+  await until(() => !$('#toast').hidden, 'size warning');
+  check('oversized file refused', text('#toast').includes('25 MB') && !$$('.file-name').some(el => el.textContent === 'huge.bin'), text('#toast'));
+
+  /* untrusted text stays text */
+  const xss = '<img src=x onerror="window.top.__xss=1">';
+  await createEvent(xss);
+  await addSub('todo', xss);
+  await sleep(50);
+  check('markup in a title is not rendered', !window.__xss && !$('.detail h2 img') && !$('.item-title img') && !$('.event-row-title img'));
+  $('.detail-actions .btn.danger').click();
+  await confirmOk();
+  await until(() => $('.detail h2').textContent === 'Grid study', 'xss event deleted');
+
+  /* second event, ordering, search */
+  await createEvent('Budget 2027');
+  check('newest event first', text('.event-row-title') === 'Budget 2027');
+  setValue($('#search'), 'final report');
+  await until(() => $$('.event-row').length === 1, 'search');
+  check('search finds sub-events', text('.event-row-title') === 'Grid study');
+  setValue($('#search'), 'zzz');
+  await until(() => $('.list-empty'), 'no match');
+  check('search says when nothing matches', text('.list-empty').includes('No events'));
+  setValue($('#search'), '');
+  await until(() => $$('.event-row').length === 2, 'search cleared');
+
+  /* language */
+  $('[data-lang=zh]').click();
+  await until(() => text('h1') === '事件记录', 'Chinese');
+  check('switching to Chinese', doc().documentElement.lang === 'zh-CN' && doc().title === '事件记录');
+  $$('.event-row')[1].click();
+  await until(() => text('.detail h2') === 'Grid study', 'select event');
+  check('columns translated', $$('.column h3').map(el => el.textContent).join() === '已完成,待完成');
+  check('dates translated', /创建于/.test(text('.detail-meta')), text('.detail-meta'));
+  await reload();
+  check('language is remembered', text('h1') === '事件记录');
+  $('[data-lang=en]').click();
+  await until(() => text('h1') === 'Event Tracker', 'English again');
+
+  /* data survives a reload, including attachments */
+  await reload();
+  check('records survive a reload', $$('.event-row').length === 2);
+
+  /* a draft survives a re-render */
+  $$('.event-row').find(r => r.textContent.includes('Grid study')).click();
+  await until(() => text('.detail h2') === 'Grid study', 'grid study');
+  const draftInput = $('.col-todo .add-form input');
+  draftInput.focus();
+  setValue(draftInput, 'half typed');
+  $('[data-lang=zh]').click();
+  await until(() => text('h1') === '事件记录', 'zh');
+  check('a typed draft survives a re-render', $('.col-todo .add-form input').value === 'half typed');
+  setValue($('.col-todo .add-form input'), '');
+  $('[data-lang=en]').click();
+  await until(() => text('h1') === 'Event Tracker', 'en');
+
+  /* connecting GitHub: errors first */
+  gh = mockGitHub();
+  installMock();
+  $('#githubBtn').click();
+  await until(dlgOpen, 'github dialog');
+  check('connect dialog explains privacy', text('#dlg').includes('private repository'));
+  check('links open the prefilled pages', $$('#dlg a').map(a => a.href).join().includes('visibility=private') && $$('#dlg a').every(a => a.target === '_blank' && a.rel.includes('noopener')));
+  const tryConnect = async (repo, token) => {
+    setValue($('#dlg input[name=repo]'), repo);
+    setValue($('#dlg input[name=token]'), token);
+    submit($('#dlg form'));
+  };
+  await tryConnect('data', 'wrong');
+  await until(() => $('.dlg-error') && !$('.dlg-error').hidden, 'bad token error');
+  check('a bad token is explained', text('.dlg-error').includes('rejected'), text('.dlg-error'));
+  await tryConnect('pub', 'tok-alice');
+  await until(() => text('.dlg-error').includes('public'), 'public repo error');
+  check('a public repository is refused', true);
+  await tryConnect('nothing', 'tok-alice');
+  await until(() => text('.dlg-error').includes('not found'), 'missing repo error');
+  check('a missing repository is explained', true);
+
+  /* connecting: move this browser's records into the account */
+  await tryConnect('data', 'tok-alice');
+  await until(() => dlgOpen() && text('#dlg h2').includes('Move records'), 'move prompt');
+  check('moving asks first and counts events', text('#dlg').includes('2 event(s)'), text('#dlg'));
+  $('#dlg .dlg-ok').click();
+  await until(() => gh.data('alice/data') && gh.fileNames('alice/data').length === 2, 'pushed to GitHub');
+  check('records reach the private repository', gh.data('alice/data').records.filter(r => r.type === 'event').length === 2);
+  check('attachments reach the repository', gh.fileNames('alice/data').length === 2, gh.fileNames('alice/data'));
+  check('uploaded attachment content is right', gh.fileNames('alice/data').map(p => gh.fileText('alice/data', p)).sort().join() === 'event level,item level');
+  check('local-only copy is cleared after moving', !localStorage.getItem('eventtracker.data.local'));
+  await until(() => text('#storageNote').includes('Synced to alice/data'), 'synced note');
+  check('the button shows the account', text('#githubLabel') === '@alice');
+
+  /* a change syncs by itself */
+  await addSub('todo', 'Synced item');
+  await until(() => gh.data('alice/data').records.some(r => r.title === 'Synced item'), 'auto sync');
+  check('changes sync automatically', true);
+
+  /* delete an attachment: leaves the repository */
+  const scopeChip = $$('.file').find(el => el.textContent.includes('scope.txt'));
+  scopeChip.querySelector('.icon-btn').click();
+  await confirmOk();
+  await until(() => gh.fileNames('alice/data').length === 1, 'attachment removed from repo');
+  check('deleting an attachment removes it from the repository', true);
+
+  /* disconnect: token and copy removed, GitHub keeps the data */
+  $('#githubBtn').click();
+  await until(dlgOpen, 'connected dialog');
+  check('connected dialog names the repository', text('#dlg').includes('alice/data') && text('#dlg').includes('@alice'));
+  $('#dlg .dlg-disconnect').click();
+  await until(() => dlgOpen() && text('#dlg h2').includes('Disconnect GitHub?'), 'disconnect prompt');
+  $('#dlg .dlg-ok').click();
+  await until(() => text('#githubLabel') === 'Connect GitHub', 'disconnected');
+  check('disconnect removes the token', !localStorage.getItem('eventtracker.github'));
+  check('disconnect removes the cached copy', !Object.keys(localStorage).some(k => k.startsWith('eventtracker.data.gh:')));
+  check('disconnect shows no records of that account', !!$('.welcome'));
+  check('GitHub keeps the records', gh.data('alice/data').records.some(r => r.title === 'Synced item'));
+
+  /* a second person on the same browser sees nothing of the first */
+  await createEvent('Bob private note');
+  $('#githubBtn').click();
+  await until(dlgOpen, 'github dialog for bob');
+  await tryConnect('data', 'tok-bob');
+  await until(() => dlgOpen() && text('#dlg h2').includes('Move records'), 'bob move prompt');
+  $('#dlg .dlg-cancel').click();
+  await until(() => text('#githubLabel') === '@bob', 'bob connected');
+  await until(() => !dlgOpen() && !!$('.welcome'), 'bob empty');
+  check('keeping records here hides them from the account', !text('.event-list').includes('Bob private note'));
+  await createEvent('Bob event');
+  await until(() => gh.data('bob/data') && gh.data('bob/data').records.some(r => r.title === 'Bob event'), 'bob sync');
+  check("bob's repository has only bob's event", gh.data('bob/data').records.length === 1, gh.data('bob/data').records.map(r => r.title));
+  check("alice's repository is untouched", !gh.data('alice/data').records.some(r => (r.title || '').startsWith('Bob')));
+  check("no requests used bob's token on alice's repository", !gh.state.requests.some(r => r.auth === 'Bearer tok-bob' && r.path.includes('/alice/')));
+
+  /* another device of alice's sees her records, and downloads an attachment */
+  $('#githubBtn').click();
+  await until(dlgOpen, 'connected dialog');
+  $('#dlg .dlg-disconnect').click();
+  await until(() => dlgOpen() && text('#dlg h2').includes('Disconnect GitHub?'), 'disconnect');
+  $('#dlg .dlg-ok').click();
+  await until(() => text('#githubLabel') === 'Connect GitHub', 'bob disconnected');
+  check('records kept here return after disconnecting', text('.event-list').includes('Bob private note'));
+
+  $('#githubBtn').click();
+  await until(dlgOpen, 'connect alice again');
+  await tryConnect('data', 'tok-alice');
+  await until(() => dlgOpen() && text('#dlg h2').includes('Move records'), 'prompt');
+  $('#dlg .dlg-cancel').click();
+  await until(() => text('#githubLabel') === '@alice' && $$('.event-row').length === 2, 'alice pulled');
+  check('a new device pulls the records', text('.event-list').includes('Grid study') && text('.event-list').includes('Budget 2027'));
+  $$('.event-row').find(r => r.textContent.includes('Grid study')).click();
+  await until(() => text('.detail h2') === 'Grid study', 'grid study on new device');
+  let got = null;
+  const OrigBlob = win().URL.createObjectURL;
+  win().URL.createObjectURL = b => { got = b; return OrigBlob.call(win().URL, b); };
+  const proto = win().HTMLAnchorElement.prototype;
+  const orig = proto.click;
+  proto.click = function () {};
+  itemCard('Write final report').querySelector('.file-open').click();
+  await until(() => got, 'download from GitHub');
+  proto.click = orig;
+  check('a new device downloads attachments from GitHub', (await got.text()) === 'item level');
+
+  /* a failing sync is visible */
+  const realFetch = gh.fetch;
+  win().fetch = async () => { throw new TypeError('offline'); };
+  await addSub('todo', 'Offline item');
+  await until(() => text('#storageNote').includes('Sync failed'), 'failure shown');
+  check('offline sync failure is shown', text('#storageNote').includes('Could not reach GitHub'), text('#storageNote'));
+  check('work done offline is kept', text('.col-todo').includes('Offline item'));
+  win().fetch = realFetch;
+  $('#githubBtn').click();
+  await until(dlgOpen, 'connected');
+  $('#dlg .dlg-sync').click();
+  await until(() => gh.data('alice/data').records.some(r => r.title === 'Offline item'), 'catch up');
+  check('work done offline syncs when back online', true);
+
+  /* backup round trip */
+  let backup = null;
+  const urlProto = win().URL;
+  const realCreate = urlProto.createObjectURL;
+  urlProto.createObjectURL = b => { backup = b; return realCreate.call(urlProto, b); };
+  proto.click = function () {};
+  $('#exportBtn').click();
+  await until(() => backup, 'export');
+  proto.click = orig;
+  urlProto.createObjectURL = realCreate;
+  const bjson = JSON.parse(await backup.text());
+  check('backup holds records and attachments', bjson.records.some(r => r.title === 'Grid study') && Object.values(bjson.attachments).length === 1, Object.keys(bjson.attachments));
+
+  // Delete an event, then restore it from the backup.
+  $$('.event-row').find(r => r.textContent.includes('Grid study')).click();
+  await until(() => text('.detail h2') === 'Grid study', 'grid again');
+  $('.detail-actions .btn.danger').click();
+  await until(dlgOpen, 'delete prompt');
+  check('delete prompt counts what goes', /\d sub-event/.test(text('#dlg')) && text('#dlg').includes('1 attachment'), text('#dlg'));
+  $('#dlg .dlg-ok').click();
+  await until(() => !$$('.event-row').some(r => r.textContent.includes('Grid study')), 'deleted');
+  await until(() => gh.fileNames('alice/data').length === 0, 'attachment gone from repo');
+  check('deleting an event removes its attachments from the repository', true);
+
+  const backupFile = new (win().File)([JSON.stringify(bjson)], 'b.json', { type: 'application/json' });
+  const dtB = new (win().DataTransfer)();
+  dtB.items.add(backupFile);
+  $('#importFile').files = dtB.files;
+  $('#importFile').dispatchEvent(new (win().Event)('change', { bubbles: true }));
+  await until(dlgOpen, 'import prompt');
+  $('#dlg .dlg-ok').click();
+  await until(() => $$('.event-row').some(r => r.textContent.includes('Grid study')), 'restored');
+  check('a backup restores a deleted event', true);
+  await until(() => gh.fileNames('alice/data').length === 1, 'attachment re-uploaded');
+  check('a restored attachment returns to the repository', gh.fileText('alice/data', gh.fileNames('alice/data')[0]) === 'item level');
+
+  /* bad backup */
+  const dtBad = new (win().DataTransfer)();
+  dtBad.items.add(new (win().File)(['{"nope":1}'], 'bad.json'));
+  $('#importFile').files = dtBad.files;
+  $('#importFile').dispatchEvent(new (win().Event)('change', { bubbles: true }));
+  await until(() => text('#toast').includes('not a valid'), 'bad backup message');
+  check('a bad backup is refused', !dlgOpen());
+
+  lines.push('', `${total - fails}/${total} passed`);
+})().catch(e => {
+  lines.push('CRASH ' + (e && e.stack || e), '', `${total - fails}/${total} passed (stopped early)`);
+  fails++;
+}).finally(() => {
+  document.getElementById('out').textContent = lines.join('\n');
+  document.title = fails ? 'FAILED' : 'DONE';
+});
+</script>
+</body>
+</html>

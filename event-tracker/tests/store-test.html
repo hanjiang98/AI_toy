@@ -1,0 +1,228 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Store tests</title></head>
+<body>
+<pre id="out">running</pre>
+<script src="../store.js"></script>
+<script src="mock-github.js"></script>
+<script>
+const { merge, canon, removeCascade, verify, createSyncer, attachmentPath, sanitizeImport } = EventStore;
+const lines = [];
+let fails = 0, total = 0;
+function check(name, cond, detail) {
+  total++;
+  if (!cond) fails++;
+  lines.push((cond ? 'ok   ' : 'FAIL ') + name + (cond || detail === undefined ? '' : '\n       ' + JSON.stringify(detail)));
+}
+const ev = (id, modified, title) => ({ id, type: 'event', title: title || id, note: '', created: 1, modified });
+const item = (id, parent, modified, status, title) => ({ id, type: 'item', parent, title: title || id, note: '', status: status || 'todo', created: 1, completed: null, modified });
+const file = (id, parent, modified, path) => Object.assign({ id, type: 'file', parent, name: id + '.txt', size: 1, mime: 'text/plain', created: 1, modified }, path ? { path } : {});
+const ids = s => (s.records || []).map(r => r.id).join(',');
+
+// A browser profile: its records, its attachment store and its syncer.
+function device(gh, token, repo) {
+  const d = { records: [], deleted: {}, blobs: {}, pending: [], gone: [], status: [], error: null };
+  d.state = () => ({ records: d.records, deleted: d.deleted });
+  d.syncer = createSyncer({
+    fetch: gh.fetch,
+    config: () => ({ token: token || 'tok-alice', repo: repo || 'alice/data' }),
+    getLocal: d.state,
+    setLocal: s => { d.records = s.records; d.deleted = s.deleted; },
+    getBlob: async id => d.blobs[id] || null,
+    onFilesGone: fs => {
+      d.gone.push(...fs.map(f => f.id));
+      for (const f of fs) { delete d.blobs[f.id]; if (f.path) d.pending.push(f.path); }
+    },
+    getPendingDeletes: () => d.pending,
+    setPendingDeletes: p => { d.pending = p; },
+    onStatus: (s, info) => { d.status.push(s); if (s === 'error') d.error = info; if (s === 'ok') d.info = info; },
+  });
+  return d;
+}
+const last = d => d.status[d.status.length - 1];
+
+(async function () {
+  /* merge */
+  check('later edit wins', merge({ records: [ev('a', 2, 'new')] }, { records: [ev('a', 1, 'old')] }).records[0].title === 'new');
+  check('merge is order independent', canon(merge({ records: [ev('a', 2, 'x')] }, { records: [ev('a', 2, 'y')] })) === canon(merge({ records: [ev('a', 2, 'y')] }, { records: [ev('a', 2, 'x')] })));
+  check('tombstone beats an older copy', ids(merge({ records: [ev('a', 1)] }, { records: [], deleted: { a: 5 } })) === '');
+  check('edit after the deletion survives', ids(merge({ records: [ev('a', 9)] }, { records: [], deleted: { a: 5 } })) === 'a');
+  const sameEvent = merge(
+    { records: [ev('e', 1), item('i1', 'e', 5, 'done')] },
+    { records: [ev('e', 1), item('i2', 'e', 6)] });
+  check('sub-events added on two devices are both kept', ids(sameEvent) === 'e,i1,i2', ids(sameEvent));
+  const orphan = merge({ records: [ev('e', 1), item('i', 'e', 9), file('f', 'i', 9)] }, { records: [], deleted: { e: 5 } }, 1000);
+  check('children of a deleted event go, even if newer', ids(orphan) === '', orphan);
+  check('orphans leave tombstones', orphan.deleted.i === 9 && orphan.deleted.f === 9, orphan.deleted);
+  const NOW = 1e12;
+  check('old tombstones expire', Object.keys(merge({ records: [], deleted: { a: NOW - 200 * 864e5 } }, null, NOW).deleted).length === 0);
+
+  /* removeCascade */
+  const tree = { records: [ev('e', 1), item('i', 'e', 1), file('f1', 'i', 1), file('f2', 'e', 1), ev('other', 1), item('j', 'other', 1)], deleted: {} };
+  const cut = removeCascade(tree, 'e', 100);
+  check('delete takes sub-events and attachments', ids(cut.state) === 'other,j', ids(cut.state));
+  check('delete reports the removed files', cut.removed.filter(r => r.type === 'file').length === 2);
+  check('delete leaves tombstones', cut.state.deleted.e === 100 && cut.state.deleted.f1 === 100);
+
+  /* attachmentPath */
+  check('path keeps a readable name', attachmentPath({ id: 'x1', name: '报告 final.pdf' }) === 'attachments/x1-报告_final.pdf', attachmentPath({ id: 'x1', name: '报告 final.pdf' }));
+  check('path cannot leave the folder', attachmentPath({ id: 'x1', name: '../../events.json' }) === 'attachments/x1-.._.._events.json', attachmentPath({ id: 'x1', name: '../../events.json' }));
+
+  /* sanitizeImport */
+  const clean = sanitizeImport({
+    records: [
+      ev('e', 1), { id: 'bad id!', type: 'event', title: 'x' }, { id: 'n', type: 'nope', title: 'x' },
+      Object.assign(file('f', 'e', 1), { path: 'events.json', extra: 1 }),
+      { id: 'i', type: 'item', parent: 'e', title: 't', status: 'weird', completed: 5 },
+    ],
+    attachments: { f: 'QUJD', ghost: 'QUJD' },
+  });
+  check('import keeps only valid records', ids(clean) === 'e,f,i', ids(clean));
+  check('import drops repository paths', !clean.records.find(r => r.id === 'f').path);
+  check('import drops unknown fields', clean.records.find(r => r.id === 'f').extra === undefined);
+  check('import normalises status', clean.records.find(r => r.id === 'i').status === 'todo' && clean.records.find(r => r.id === 'i').completed === null);
+  check('import ignores attachments without a record', Object.keys(clean.files).join() === 'f');
+  let threw = false;
+  try { sanitizeImport({ hello: 1 }); } catch { threw = true; }
+  check('import refuses a foreign file', threw);
+
+  /* verify */
+  let gh = mockGitHub();
+  const verr = async (tok, repo) => { try { await verify(tok, repo, gh.fetch); return 'ok'; } catch (e) { return e.status || e.message; } };
+  const who = await verify('tok-alice', 'data', gh.fetch);
+  check('verify adds the owner', who.repo === 'alice/data' && who.login === 'alice', who);
+  check('verify accepts a full URL', (await verify('tok-alice', 'https://github.com/alice/data.git', gh.fetch)).repo === 'alice/data');
+  check('verify refuses a bad token', await verr('nope', 'data') === 401);
+  check('verify refuses a public repository', await verr('tok-alice', 'pub') === 'repo_public');
+  check('verify refuses a missing repository', await verr('tok-alice', 'none') === 'repo_not_found');
+  check("verify refuses someone else's repository", await verr('tok-alice', 'bob/data') === 'repo_not_found');
+
+  gh.state.userForbidden = true;
+  check('verify works without profile access if the owner is given', (await verify('tok-alice', 'alice/data', gh.fetch)).login === 'alice');
+  check('verify asks for the owner if it cannot read the profile', await verr('tok-alice', 'data') === 'need_owner');
+
+  /* sync */
+  gh = mockGitHub();
+  const a = device(gh), b = device(gh);
+  await a.syncer.run();
+  check('nothing to sync creates no file', !gh.data('alice/data') && last(a) === 'ok');
+
+  a.records = [ev('e', 1), item('i', 'e', 2)];
+  await a.syncer.run();
+  check('first sync pushes', ids(gh.data('alice/data')) === 'e,i');
+  await b.syncer.run();
+  check('second device pulls', ids(b.state()) === 'e,i');
+  const shaBefore = gh.state.repos['alice/data'].files['events.json'].sha;
+  await b.syncer.run();
+  check('no change makes no commit', gh.state.repos['alice/data'].files['events.json'].sha === shaBefore);
+
+  a.records = [...a.records, item('i2', 'e', 3)];
+  b.records = [...b.records, item('i3', 'e', 4)];
+  await a.syncer.run(); await b.syncer.run(); await a.syncer.run();
+  check('edits on two devices converge', ids(a.state()) === 'e,i,i2,i3' && canon(a.state()) === canon(b.state()), [ids(a.state()), ids(b.state())]);
+
+  /* a push that loses a race */
+  gh.state.beforePut = () => {
+    const f = gh.state.repos['alice/data'].files['events.json'];
+    const other = JSON.parse(EventStore.b64decode(f.content));
+    other.records.push(item('race', 'e', 7));
+    f.content = EventStore.b64encode(JSON.stringify(other));
+    f.sha = 'racer';
+  };
+  a.records = [...a.records, item('i4', 'e', 8)];
+  await a.syncer.run();
+  check('losing a race retries and keeps both', gh.data('alice/data').records.some(r => r.id === 'race') && gh.data('alice/data').records.some(r => r.id === 'i4') && last(a) === 'ok');
+
+  /* attachments */
+  gh = mockGitHub();
+  const c = device(gh), d = device(gh);
+  c.records = [ev('e', 1), file('f1', 'e', 2)];
+  c.blobs.f1 = new Blob(['hello attachment']);
+  await c.syncer.run();
+  const stored = gh.fileNames('alice/data');
+  check('attachment is uploaded', stored.length === 1 && gh.fileText('alice/data', stored[0]) === 'hello attachment', stored);
+  check('record gains its path', c.records.find(r => r.id === 'f1').path === stored[0]);
+  check('pushed record carries the path', gh.data('alice/data').records.find(r => r.id === 'f1').path === stored[0]);
+  const order = gh.state.requests.filter(r => r.method === 'PUT').map(r => r.path.split('/').pop());
+  check('attachment goes up before the record', order[0].startsWith('f1') && order[1] === 'events.json', order);
+
+  await d.syncer.run();
+  const rec = d.records.find(r => r.id === 'f1');
+  const fetched = await EventStore.client('tok-alice', gh.fetch).readFile('alice/data', rec.path);
+  check('another device can download it', fetched && (await fetched.text()) === 'hello attachment');
+  const puts = gh.state.requests.filter(r => r.method === 'PUT' && r.path.includes('attachments')).length;
+  await d.syncer.run(); await c.syncer.run();
+  check('an uploaded file is not uploaded twice', gh.state.requests.filter(r => r.method === 'PUT' && r.path.includes('attachments')).length === puts);
+
+  /* a file already in the repository, from a sync that stopped before saving the record */
+  const e = device(gh);
+  e.records = [ev('e', 1), file('f1', 'e', 2)];
+  e.blobs.f1 = new Blob(['hello attachment']);
+  await e.syncer.run();
+  check('re-uploading an existing file is harmless', last(e) === 'ok' && e.records.find(r => r.id === 'f1').path === stored[0], e.error && e.error.message);
+
+  /* failed upload */
+  const g2 = mockGitHub();
+  const f = device(g2);
+  f.records = [ev('e', 1), file('bad', 'e', 2), file('good', 'e', 2)];
+  f.blobs.bad = new Blob(['b']); f.blobs.good = new Blob(['g']);
+  g2.state.failPuts = 1;
+  await f.syncer.run();
+  check('one failed upload does not stop the others', g2.fileNames('alice/data').length === 1 && f.info.failedUploads === 1, g2.fileNames('alice/data'));
+  check('a failed upload stays pending', !f.records.find(r => r.id === 'bad').path && !!f.blobs.bad);
+  await f.syncer.run();
+  check('a failed upload is retried next time', g2.fileNames('alice/data').length === 2 && f.info.failedUploads === 0);
+
+  /* deleting */
+  gh = mockGitHub();
+  const m = device(gh), n = device(gh);
+  m.records = [ev('e', 1), item('i', 'e', 1), file('f', 'i', 2), ev('keep', 1)];
+  m.blobs.f = new Blob(['x']);
+  await m.syncer.run(); await n.syncer.run();
+  n.blobs.f = new Blob(['x']);
+  const path = m.records.find(r => r.id === 'f').path;
+  const removed = removeCascade(m.state(), 'e', Date.now() + 1000);
+  m.records = removed.state.records; m.deleted = removed.state.deleted;
+  m.pending = [path];
+  await m.syncer.run();
+  check('deleting removes the file from the repository', gh.fileNames('alice/data').length === 0);
+  check('the pending delete queue empties', m.pending.length === 0);
+  await n.syncer.run();
+  check('the deletion reaches the other device', ids(n.state()) === 'keep', ids(n.state()));
+  check('the other device drops its cached file', !n.blobs.f && n.gone.includes('f'));
+  check('a second delete of a missing file is harmless', last(n) === 'ok' && n.pending.length === 0);
+  await m.syncer.run(); await n.syncer.run();
+  check('deleted records do not come back', ids(m.state()) === 'keep' && ids(n.state()) === 'keep');
+
+  /* errors */
+  const bad = device(gh, 'nope');
+  await bad.syncer.run();
+  check('a bad token reports an error', last(bad) === 'error' && bad.error.status === 401);
+
+  /* isolation between accounts */
+  gh = mockGitHub();
+  const alice = device(gh, 'tok-alice', 'alice/data');
+  const bob = device(gh, 'tok-bob', 'bob/data');
+  alice.records = [ev('alice-event', 1), file('alice-file', 'alice-event', 1)];
+  alice.blobs['alice-file'] = new Blob(['secret']);
+  bob.records = [ev('bob-event', 1)];
+  await alice.syncer.run(); await bob.syncer.run(); await alice.syncer.run();
+  check("alice sees only alice's events", ids(alice.state()) === 'alice-event,alice-file', ids(alice.state()));
+  check("bob sees only bob's events", ids(bob.state()) === 'bob-event', ids(bob.state()));
+  check("alice's file is only in alice's repository", gh.fileNames('alice/data').length === 1 && gh.fileNames('bob/data').length === 0);
+  const crossBob = device(gh, 'tok-bob', 'alice/data');
+  crossBob.records = [ev('intruder', 1)];
+  await crossBob.syncer.run();
+  check("bob's token cannot write to alice's repository", last(crossBob) === 'error' && !gh.data('alice/data').records.some(r => r.id === 'intruder'), crossBob.status);
+
+  lines.push('', `${total - fails}/${total} passed`);
+})().catch(e => {
+  lines.push('CRASH ' + (e && e.stack || e), '', `${total - fails}/${total} passed`);
+}).finally(() => {
+  document.getElementById('out').textContent = lines.join('\n');
+  document.title = fails ? 'FAILED' : 'DONE';
+  document.dispatchEvent(new Event('tests-done'));
+});
+</script>
+</body>
+</html>
